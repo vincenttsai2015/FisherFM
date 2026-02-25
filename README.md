@@ -22,7 +22,7 @@ Our code contains parts of [FlowMol](https://github.com/Dunni3/FlowMol/tree/main
 * Install DGL: ```python -m pip install --pre dgl -f https://data.dgl.ai/wheels-test/torch-2.4/cu121/repo.html```
 * Install setuptools with version<81: ```python -m pip install "setuptools<81"```
     * Verify setuptools ```python -c "import pkg_resources; print('OK')"```
-* Install other required packages: ```python -m pip install pandas POT dirichlet einops biopython pyBigWig pyranges cooler cooltools wandb rootutils pre-commit rich pytest geoopt einops geomstats ipdb transformers schedulefree pydantic diffusers```
+* Install other required packages: ```python -m pip install numpy<2 pandas POT dirichlet einops biopython pyBigWig pyranges cooler cooltools wandb rootutils pre-commit rich pytest geoopt einops geomstats ipdb transformers schedulefree pydantic diffusers```
 
 ## Toy Experiment
 For the DFM toy experiment, the following command allows us to run our code:
