@@ -24,6 +24,13 @@ trainer:
   max_epochs: 500
   gradient_clip_val: 1.0
 
+dataset:
+  dataset_name: qm9
+  raw_data_dir: data/qm9/raw
+  processed_data_dir: data/qm9/processed
+  dataset_size: 133885
+  atom_map: ['C', 'H', 'N', 'O', 'F']
+
 model:
   compile: false
   conditional: false

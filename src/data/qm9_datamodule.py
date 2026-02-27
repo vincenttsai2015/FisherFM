@@ -26,12 +26,14 @@ class MoleculeDataModule(LightningDataModule):
         super().__init__()
         self.distributed = distributed
         self.dataset_config = {
-            'processed_data_dir': f'data/{dataset}',
-            'raw_data_dir': f'data/{dataset}_raw',
+            'processed_data_dir': f'data/{dataset}/processed',
+            'raw_data_dir': f'data/{dataset}/raw',
             'dataset_name': dataset,
         }
+        # self.dataset_config = dataset_config
         self.batch_size = batch_size
         self.num_workers = num_workers
+        # self.prior_config = dm_prior_config
         self.prior_config = {
             'a': {
                 'align': False,
@@ -66,20 +68,20 @@ class MoleculeDataModule(LightningDataModule):
     
     def setup(self, stage: str | None = None) -> None:
         self.train_dataset = MoleculeDataset(
-            'train', 
-            self.dataset_config, 
+            split='train', 
+            dataset_config=self.dataset_config, 
             prior_config=self.prior_config,
         )
 
         self.val_dataset = MoleculeDataset(
-            'val', 
-            self.dataset_config, 
+            split='val', 
+            dataset_config=self.dataset_config, 
             prior_config=self.prior_config,
         )
 
         self.test_dataset = MoleculeDataset(
-            'test', 
-            self.dataset_config, 
+            split='test', 
+            dataset_config=self.dataset_config, 
             prior_config=self.prior_config,
         )
 
@@ -157,8 +159,8 @@ class MoleculeDataModule(LightningDataModule):
 
 if __name__ == "__main__":
     dataset_config = {
-        'processed_data_dir': 'data/qm9',
-        'raw_data_dir': 'data/qm9_raw',
+        'processed_data_dir': 'data/qm9/processed',
+        'raw_data_dir': 'data/qm9/raw',
         'dataset_name': 'qm9',
     }
     prior_config = {
@@ -191,4 +193,4 @@ if __name__ == "__main__":
     x = next(iter(data_loader))
     print(type(x))
     print(x)
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()

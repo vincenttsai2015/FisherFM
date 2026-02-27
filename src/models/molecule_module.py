@@ -127,7 +127,7 @@ class MoleculeModule(LightningModule):
         conditional: bool,
         features_manifolds: dict[str, str],
         atom_type_map: list[str] | None = None,
-        n_atoms_hist_file: str = "data/qm9/train_data_n_atoms_histogram.pt",
+        n_atoms_hist_file: str = "data/qm9/processed/train_data_n_atoms_histogram.pt",
         inference_steps: int = 100,
         features_priors: dict[str, str] | None = None,
         loss_weights: dict[str, float] | None = None,
