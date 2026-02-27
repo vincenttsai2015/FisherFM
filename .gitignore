@@ -12,3 +12,5 @@ pytabix_fix/
 copy2server.sh
 cache/
 workdir/
+data/promoter
+data/enhancer/
