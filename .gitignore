@@ -15,5 +15,3 @@ workdir/
 data/promoter
 data/enhancer/
 data/qm9/
-data/qm9/raw/
-data/qm9/processed/
