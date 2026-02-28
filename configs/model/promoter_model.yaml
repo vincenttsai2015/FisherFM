@@ -16,7 +16,7 @@ scheduler:
   eta_min: 0.00008
 
 net:
-  _target_: src.models.net.promoter_model.promoter_model.PromoterModel
+  _target_: src.models.net.promoter_model.PromoterModel
   mode: dirichlet
   embed_dim: 256
   time_step: 0.01
