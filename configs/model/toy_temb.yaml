@@ -14,7 +14,7 @@ scheduler:
   patience: 10
 
 net:
-  _target_: src.models.net.TembMLP
+  _target_: src.models.net.model.TembMLP
   hidden: 512
   depth: 3
   emb_size: 128

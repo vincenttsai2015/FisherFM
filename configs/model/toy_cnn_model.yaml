@@ -14,7 +14,7 @@ scheduler:
   patience: 10
 
 net:
-  _target_: src.models.net.CNNModel
+  _target_: src.models.net.model.CNNModel
   hidden: 128
   mode: simplex
   num_cls: 3

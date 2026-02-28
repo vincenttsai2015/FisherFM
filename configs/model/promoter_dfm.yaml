@@ -9,7 +9,7 @@ optimizer:
 scheduler: null
 
 model:
-  _target_: src.models.net.PromoterModel
+  _target_: src.models.net.promoter_model.PromoterModel
   mode: dirichlet
   embed_dim: 256
   time_dependent_weights: null
