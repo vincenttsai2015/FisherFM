@@ -30,8 +30,9 @@ model:
     dim: ${data.dim}
   compile: false
   kl_eval: true
-  atol: 1e-7
-  rtol: 1e-7
+  manifold: sphere
+  # atol: 1e-7
+  # rtol: 1e-7
   # ema: true
   # label_smoothing: 0.81
 

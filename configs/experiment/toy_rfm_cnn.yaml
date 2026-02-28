@@ -35,8 +35,8 @@ model:
   # label_smoothing: 0.81
 
 data:
-  batch_size: 512
-  k: 4
+  batch_size: 128
+  k: 9
   dim: 100
 
 logger:
