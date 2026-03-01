@@ -3,7 +3,7 @@ out/
 *.out
 wandb/
 slurm/
-./data/
+data/
 .pytest_cache/
 logs/
 *.csv
@@ -15,3 +15,4 @@ workdir/
 data/promoter
 data/enhancer/
 data/qm9
+data/bmnist/
