@@ -4,42 +4,45 @@
 # python train.py experiment=example
 
 defaults:
-  - override /data: bmnist
-  - override /model: bmnist_cnn_dfm
+  - override /data: toy_dfm
+  - override /model: toy_bmlp_sfm
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["bmnist", "cnn"]
+tags: ["toy_dfm", "bmlp"]
 
 seed: 12345
 
 trainer:
   min_epochs: 1
-  max_epochs: 500
+  max_epochs: 1000
   gradient_clip_val: 1.0
-  num_sanity_val_steps: 0
 
 model:
   optimizer:
-    lr: 0.0001
+    lr: 0.001
   net:
     k: ${data.k}
     dim: ${data.dim}
-    mode: "dirichlet"
+    missing_coordinate: false
   compile: false
-  mode: "dirichlet"
+  manifold: "sphere"
+  kl_eval: true
+  ot_method: exact
+  closed_form_drv: false
 
 data:
-  batch_size: 256
-  k: 2
-  dim: 784
+  batch_size: 512
+  k: 4
+  dim: 100
 
 logger:
   wandb:
     tags: ${tags}
-    group: "bmnist_dfm"
+    group: "toy_dfm"
+    name: toy_${data.k}_${data.dim}_${model.manifold}_${model.ot_method}
   aim:
-    experiment: "bmnist_dfm"
+    experiment: "toy_dfm"

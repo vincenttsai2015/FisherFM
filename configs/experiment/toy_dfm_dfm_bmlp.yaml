@@ -5,14 +5,14 @@
 
 defaults:
   - override /data: toy_dfm
-  - override /model: toy_cnn_model
+  - override /model: toy_bmlp_dfm
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["toy_dfm", "cnn"]
+tags: ["toy_dfm", "bmlp"]
 
 seed: 12345
 
@@ -20,17 +20,17 @@ trainer:
   min_epochs: 1
   max_epochs: 1000
   gradient_clip_val: 1.0
-  num_sanity_val_steps: 0
 
 model:
   optimizer:
-    lr: 0.0001
+    lr: 0.001
   net:
     k: ${data.k}
     dim: ${data.dim}
-    mode: "dirichlet"
-  compile: false
+    missing_coordinate: false
   mode: "dirichlet"
+  compile: false
+  
 
 data:
   batch_size: 512
@@ -41,5 +41,6 @@ logger:
   wandb:
     tags: ${tags}
     group: "toy_dfm"
+    name: toy_${data.k}_${data.dim}
   aim:
     experiment: "toy_dfm"

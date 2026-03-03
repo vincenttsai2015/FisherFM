@@ -472,7 +472,9 @@ class BestMLP(nn.Module):
         """
         assert emb_size > 0, "emb_size must be positive"
         super().__init__()
-        self._missing_coordinate = missing_coordinate
+        self.k = k
+        self.dim = dim
+        self._missing_coordinate = missing_coordinate        
         act = str_to_activation(activation)
         self.time_embedding = nn.Sequential(
             # SinusoidalEmbedding(emb_size, scale=25.0),
@@ -495,8 +497,10 @@ class BestMLP(nn.Module):
             ]
         self.net = nn.Sequential(*layers)
 
-    def forward(self, x: Tensor, t: Tensor) -> Tensor:
+    def forward(self, x: Tensor, t: Tensor, **kwargs) -> Tensor:
         """Forward pass."""
+        # if t is not None and torch.is_tensor(t) and t.ndim == 1:
+        #     t = t.view(-1, 1)
         prods = x.size(1)
         x = x.view((x.size(0), -1))
         emb = self.time_embedding(t)
