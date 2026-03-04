@@ -7,7 +7,7 @@ from typing import Any, List
 import pandas as pd
 import numpy as np
 import yaml
-import inspect
+
 import lightning as pl
 import torch
 from torch.distributions import Dirichlet
@@ -148,34 +148,11 @@ class DNAModule(pl.LightningModule):
     def on_test_epoch_end(self):
         self.log("test/kl", self.estimate_kl(self.trainer.test_dataloaders.dataset.probs.to(self.device), self.kl_samples), on_step=False, on_epoch=True, prog_bar=False)
 
-    def _time_b1(self, s, B, device):
-        # returns shape (B,1) float tensor on device
-        if not torch.is_tensor(s):
-            s = torch.tensor(s, device=device)
-        s = s.to(device).float()
-        if s.ndim == 0:
-            s = s.expand(B)
-        if s.ndim == 1:
-            s = s.view(B, 1)
-        elif s.ndim == 2 and s.shape[1] != 1:
-            s = s.view(B, 1)
-        return s
-    
     def general_step(self, batch, batch_idx=None):
         seq = batch
         B = seq.size(0)
-        print("seq:", seq.shape, seq.dtype)          # 期待 (B,100,4)
-        if seq.ndim == 3 and seq.shape[1] == self.net.k and seq.shape[2] == self.net.dim:
-            seq = seq.permute(0, 2, 1).contiguous()
-        xt, alphas = sample_cond_prob_path(self.mode, self.fix_alpha, self.alpha_scale, seq, self.net.k)
-        # xt: make sure (B,L,K)
-        if xt.ndim == 3 and xt.shape[1] == self.net.k and xt.shape[2] == self.net.dim:
-            xt = xt.permute(0, 2, 1).contiguous()
-        # xt, alphas = sample_cond_prob_path(self.mode, self.fix_alpha, self.alpha_scale, seq, self.net.dim)
-        print("xt:", xt.shape, xt.dtype)            # 這裡如果已經是 (B,100,8) 就抓到了
-        print("alphas:", alphas.shape, alphas.dtype)
-        t = self._time_b1(alphas, B, xt.device)
 
+        xt, alphas = sample_cond_prob_path(self.mode, self.fix_alpha, self.alpha_scale, seq, self.net.dim)
         if self.mode == 'distill':
             if self.stage == 'val':
                 seq_distill = torch.zeros_like(seq, device=self.device)
@@ -183,10 +160,9 @@ class DNAModule(pl.LightningModule):
                 logits_distill, xt = self.dirichlet_flow_inference(seq, None, model=self.net)
                 seq_distill = torch.argmax(logits_distill, dim=-1)
             alphas = alphas * 0
-        
         xt_inp = xt
         if self.mode == 'dirichlet' or self.mode == 'riemannian':
-            xt_expanded, _ = expand_simplex(xt, t.squeeze(1), self.prior_pseudocount)
+            xt_inp, _ = expand_simplex(xt,alphas, self.prior_pseudocount)
 
         if self.cls_free_guidance:
             if self.binary_guidance:
@@ -196,17 +172,7 @@ class DNAModule(pl.LightningModule):
                 cls_inp = torch.where(torch.rand(B, device=self.device) >= self.cls_free_noclass_ratio, cls.squeeze(), self.net.num_cls) # set fraction of the classes to the unconditional class
         else:
             cls_inp = None
-
-        kwargs = {"t": t}
-        print("xt_inp:", xt_inp.shape, xt_inp.dtype) # 這裡應該要 (B,100,4)
-        print("t:", kwargs["t"].shape, kwargs["t"].dtype)
-        sig = inspect.signature(self.net.forward)
-        if "cls" in sig.parameters:
-            kwargs["cls"] = cls_inp
-
-        logits = self.net(xt_inp, **kwargs)
-        # logits = self.net(xt_inp, t=alphas, cls=cls_inp)
-        
+        logits = self.net(xt_inp, t=alphas, cls=cls_inp)
         losses = torch.nn.functional.cross_entropy(
             logits.transpose(1, 2),
             seq_distill if self.mode == 'distill' else seq.argmax(dim=-1),
@@ -263,19 +229,14 @@ class DNAModule(pl.LightningModule):
 
         t_span = torch.linspace(1, self.alpha_max, self.num_integration_steps, device=self.device)
         for i, (s, t) in enumerate(zip(t_span[:-1], t_span[1:])):
-            t = self._time_b1(s, B, xt.device)          # (B,1)
-            # expand_simplex 如果只要 (B,) 就用 t.squeeze(1)
-            xt_expanded, _ = expand_simplex(xt, t.squeeze(1), self.prior_pseudocount)
-            # xt_expanded, _ = expand_simplex(xt, s[None].expand(B), self.prior_pseudocount)
+            xt_expanded, _ = expand_simplex(xt, s[None].expand(B), self.prior_pseudocount)
             if self.cls_free_guidance:
-                logits = model(xt, t=t, cls=cls if self.all_class_inference else (torch.ones(B, device=self.device) * self.target_class).long())
-                # logits = model(xt_expanded, t=s[None].expand(B), cls=cls if self.all_class_inference else (torch.ones(B, device=self.device) * self.target_class).long())
+                logits = model(xt_expanded, t=s[None].expand(B), cls=cls if self.all_class_inference else (torch.ones(B, device=self.device) * self.target_class).long())
                 probs_cond = torch.nn.functional.softmax(logits / self.flow_temp, -1)  # [B, L, K]
                 if self.score_free_guidance:
                     flow_probs = probs_cond
                 else:
-                    logits_uncond = model(xt, t=t, cls=(torch.ones(B, device=self.device) * model.num_cls).long())
-                    # logits_uncond = model(xt_expanded, t=s[None].expand(B), cls=(torch.ones(B, device=self.device) * model.num_cls).long())
+                    logits_uncond = model(xt_expanded, t=s[None].expand(B), cls=(torch.ones(B, device=self.device) * model.num_cls).long())
                     probs_unccond = torch.nn.functional.softmax(logits_uncond / self.flow_temp, -1)  # [B, L, K]
                     if self.probability_tilt:
                         flow_probs = probs_cond ** (1 - self.guidance_scale) * probs_unccond ** (self.guidance_scale)
@@ -292,11 +253,7 @@ class DNAModule(pl.LightningModule):
                         flow_probs = self.get_cls_free_guided_flow(xt, s + 1e-4, logits_uncond, logits)
 
             else:
-                t = self._time_b1(s, B, xt.device)     # (B,1)
-                t_net = self._time_b1(t, B, xt.device)    # (B,1)
-                s_net = self._time_b1(s, B, xt.device)    # (B,1)  (如果 model 要用到 s)
-                logits = model(xt, t=t_net, cls=cls if self.all_class_inference else (torch.ones(B, device=self.device) * self.target_class).long())
-                # logits = model(xt_expanded, t=s[None].expand(B))
+                logits = model(xt_expanded, t=s[None].expand(B))
                 flow_probs = torch.nn.functional.softmax(logits / self.flow_temp, -1) # [B, L, K]
 
             if self.cls_guidance:
@@ -319,11 +276,7 @@ class DNAModule(pl.LightningModule):
                 flow_uncond = (probs_unccond.unsqueeze(-2) * cond_flows).sum(-1)
                 flow = flow_cond * self.guidance_scale + (1 - self.guidance_scale) * flow_uncond
 
-            # step update
-            t_step = t_net.unsqueeze(-1)  # (B,1,1)
-            s_step = s_net.unsqueeze(-1)  # (B,1,1)
-            xt = xt + flow * (t_step - s_step)
-            # xt = xt + flow * (t - s)
+            xt = xt + flow * (t - s)
 
             if not torch.allclose(xt.sum(2), torch.ones((B, L), device=self.device), atol=1e-4) or not (xt >= 0).all():
                 print(f'WARNING: xt.min(): {xt.min()}. Some values of xt do not lie on the simplex. There are we are {(xt<0).sum()} negative values in xt of shape {xt.shape} that are negative. We are projecting them onto the simplex.')
@@ -338,12 +291,8 @@ class DNAModule(pl.LightningModule):
 
         t_span = torch.linspace(0, 1, self.num_integration_steps, device=self.device)
         for s, t in zip(t_span[:-1], t_span[1:]):
-            t = self._time_b1(s, B, xt.device)          # (B,1)
-            # expand_simplex 如果只要 (B,) 就用 t.squeeze(1)
-            xt_expanded, _ = expand_simplex(xt, t.squeeze(1), self.prior_pseudocount)
-            # xt_expanded, _ = expand_simplex(xt, s[None].expand(B), self.prior_pseudocount)
-            logits = self.net(xt_expanded, t=t)
-            # logits = self.net(xt_expanded, s[None].expand(B))
+            xt_expanded, _ = expand_simplex(xt, s[None].expand(B), self.prior_pseudocount)
+            logits = self.net(xt_expanded, s[None].expand(B))
             probs = torch.nn.functional.softmax(logits, -1)
             cond_flows = (eye - xt.unsqueeze(-1)) / (1 - s)
             flow = (probs.unsqueeze(-2) * cond_flows).sum(-1)
@@ -697,7 +646,7 @@ class PromoterModule(GeneralModule):
         loss = self.general_step(batch, batch_idx)
         if self.validate:
             self.try_print_log()
-    
+
     def general_step(self, batch, batch_idx=None):
         self.iter_step += 1
         seq_one_hot = batch[:, :, :4]
