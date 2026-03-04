@@ -472,6 +472,8 @@ class BestMLP(nn.Module):
         """
         assert emb_size > 0, "emb_size must be positive"
         super().__init__()
+        self.k = k
+        self.dim = dim
         self._missing_coordinate = missing_coordinate
         act = str_to_activation(activation)
         self.time_embedding = nn.Sequential(
@@ -481,7 +483,7 @@ class BestMLP(nn.Module):
         layers: list[nn.Module] = []
         fd = k * dim
         for i in range(depth):
-            ind = fd if i == 0 else hidden
+            ind = 2 * fd if i == 0 else hidden
             out = hidden if i < depth - 1 else (fd if not missing_coordinate else fd - k)
             layers += [
                 BestBlock(
@@ -495,11 +497,16 @@ class BestMLP(nn.Module):
             ]
         self.net = nn.Sequential(*layers)
 
-    def forward(self, x: Tensor, t: Tensor) -> Tensor:
+    def forward(self, x: Tensor, t: Tensor, cls: Tensor | None = None) -> Tensor:
         """Forward pass."""
         prods = x.size(1)
         x = x.view((x.size(0), -1))
         emb = self.time_embedding(t)
+        print("x shape:", x.shape)
+        print("emb shape:", emb.shape)
+        print("cls shape:", None if cls is None else cls.shape)
+        # x_t = torch.cat([x, emb], dim=-1)
+        # print("x_t shape:", x_t.shape)
         for layer in self.net:
             x = layer(x, emb)
         x = x.view(x.size(0), prods, -1)
@@ -587,7 +594,7 @@ class BestEnhancerMLP(nn.Module):
         self.k = k
         self.dim = dim
 
-    def forward(self, x: Tensor, cls: Tensor, t: Tensor) -> Tensor:
+    def forward(self, x: Tensor, t: Tensor, cls: Tensor) -> Tensor:
         """Forward pass."""
         temb = self.temb(t)
         original = x.shape
@@ -728,6 +735,43 @@ class Dense(nn.Module):
 
     def forward(self, x):
         return self.dense(x)[...]
+
+class MLPModel(nn.Module):
+    def __init__(self, args, alphabet_size, num_cls, classifier=False):
+        super().__init__()
+        self.alphabet_size = alphabet_size
+        self.classifier = classifier
+        self.num_cls = num_cls
+
+
+        self.time_embedder = nn.Sequential(GaussianFourierProjection(embed_dim= args.hidden_dim),nn.Linear(args.hidden_dim, args.hidden_dim))
+        self.embedder = nn.Linear((1 if classifier and not args.cls_expanded_simplex else 2) * self.alphabet_size,  args.hidden_dim)
+        self.mlp = nn.Sequential(
+            nn.Linear(args.hidden_dim, args.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(args.hidden_dim, args.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(args.hidden_dim, args.hidden_dim if classifier else self.alphabet_size)
+        )
+        if classifier:
+            self.cls_head = nn.Sequential(nn.Linear(args.hidden_dim, args.hidden_dim),
+                                   nn.ReLU(),
+                                   nn.Linear(args.hidden_dim, self.num_cls))
+        if self.args.cls_free_guidance and not self.classifier:
+            self.cls_embedder = nn.Embedding(num_embeddings=self.num_cls + 1, embedding_dim=args.hidden_dim)
+
+
+    def forward(self, seq, t, cls=None):
+        time_embed = self.time_embedder(t)
+        feat = self.embedder(seq)
+        feat = feat + time_embed[:,None,:]
+        if self.args.cls_free_guidance and not self.classifier:
+            feat = feat + self.cls_embedder(cls)[:, None, :]
+        feat = self.mlp(feat)
+        if self.classifier:
+            return self.cls_head(feat.mean(dim=1))
+        else:
+            return feat
 
 
 class CNNModel(nn.Module):

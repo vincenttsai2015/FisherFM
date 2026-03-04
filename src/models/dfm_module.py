@@ -172,6 +172,8 @@ class DNAModule(pl.LightningModule):
                 cls_inp = torch.where(torch.rand(B, device=self.device) >= self.cls_free_noclass_ratio, cls.squeeze(), self.net.num_cls) # set fraction of the classes to the unconditional class
         else:
             cls_inp = None
+        if alphas.dim() == 1:
+            alphas = alphas.unsqueeze(-1)
         logits = self.net(xt_inp, t=alphas, cls=cls_inp)
         losses = torch.nn.functional.cross_entropy(
             logits.transpose(1, 2),
@@ -253,7 +255,7 @@ class DNAModule(pl.LightningModule):
                         flow_probs = self.get_cls_free_guided_flow(xt, s + 1e-4, logits_uncond, logits)
 
             else:
-                logits = model(xt_expanded, t=s[None].expand(B))
+                logits = model(xt_expanded, t=s[None].expand(B).unsqueeze(-1))
                 flow_probs = torch.nn.functional.softmax(logits / self.flow_temp, -1) # [B, L, K]
 
             if self.cls_guidance:
