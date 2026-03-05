@@ -298,6 +298,7 @@ class SFMModule(LightningModule):
         if self.kl_eval:
             # evaluate KL
             real_probs = self.trainer.val_dataloaders.dataset.probs.to(self.device)
+            print(f'real_probs.shape: {real_probs.shape}')
             kl = estimate_categorical_kl(
                 self.net,
                 self.manifold,

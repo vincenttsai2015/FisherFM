@@ -78,6 +78,9 @@ def estimate_categorical_kl(
         the real distribution, i.e., "KL(model || real_dist)".
     """
     assert sampling_mode in ["sample", "max"], "not a valid sampling mode"
+    assert real_dist.ndim == 3, real_dist.shape
+    N, k, dim = real_dist.shape
+    assert k == 2 and dim == 784, (k, dim)  # 先硬檢查，避免 silent reshape
     # init acc
     acc = torch.zeros_like(real_dist, device=real_dist.device).int()
 
@@ -89,6 +92,7 @@ def estimate_categorical_kl(
         x_0 = manifold.uniform_prior(
             draw, real_dist.size(0), real_dist.size(1),
         ).to(real_dist.device)
+        assert x_0.numel() % (k * dim) == 0, (x_0.shape, x_0.numel(), k, dim)
         x_1 = manifold.tangent_euler(x_0, model, inference_steps, tangent=tangent)
         x_1 = manifold.send_to(x_1, NSimplex)
         if sampling_mode == "sample":

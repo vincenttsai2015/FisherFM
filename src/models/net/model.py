@@ -449,12 +449,8 @@ class BestMLP(nn.Module):
     """
 
     def __init__(
-        self,
-        dim: int,
-        k: int,
-        hidden: int,
-        depth: int,
-        emb_size: int,
+        self, dim: int, k: int, hidden: int,
+        depth: int, emb_size: int,
         activation: str = "lrelu",
         batch_norm: bool = False,
         missing_coordinate: bool = True,
@@ -737,35 +733,37 @@ class Dense(nn.Module):
         return self.dense(x)[...]
 
 class MLPModel(nn.Module):
-    def __init__(self, args, alphabet_size, num_cls, classifier=False):
+    def __init__(self, alphabet_size, num_cls, hidden_dim, classifier=False, cls_expanded_simplex=False, cls_free_guidance=False):
         super().__init__()
         self.alphabet_size = alphabet_size
         self.classifier = classifier
         self.num_cls = num_cls
-
-
-        self.time_embedder = nn.Sequential(GaussianFourierProjection(embed_dim= args.hidden_dim),nn.Linear(args.hidden_dim, args.hidden_dim))
-        self.embedder = nn.Linear((1 if classifier and not args.cls_expanded_simplex else 2) * self.alphabet_size,  args.hidden_dim)
+        self.hidden_dim = hidden_dim
+        self.cls_expanded_simplex = cls_expanded_simplex
+        self.cls_free_guidance = cls_free_guidance
+        
+        self.time_embedder = nn.Sequential(GaussianFourierProjection(embed_dim= self.hidden_dim),nn.Linear(self.hidden_dim, self.hidden_dim))
+        self.embedder = nn.Linear((1 if classifier and not self.cls_expanded_simplex else 2) * self.alphabet_size,  self.hidden_dim)
         self.mlp = nn.Sequential(
-            nn.Linear(args.hidden_dim, args.hidden_dim),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(args.hidden_dim, args.hidden_dim),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(args.hidden_dim, args.hidden_dim if classifier else self.alphabet_size)
+            nn.Linear(self.hidden_dim, self.hidden_dim if classifier else self.alphabet_size)
         )
         if classifier:
-            self.cls_head = nn.Sequential(nn.Linear(args.hidden_dim, args.hidden_dim),
+            self.cls_head = nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim),
                                    nn.ReLU(),
-                                   nn.Linear(args.hidden_dim, self.num_cls))
-        if self.args.cls_free_guidance and not self.classifier:
-            self.cls_embedder = nn.Embedding(num_embeddings=self.num_cls + 1, embedding_dim=args.hidden_dim)
+                                   nn.Linear(self.hidden_dim, self.num_cls))
+        if self.cls_free_guidance and not self.classifier:
+            self.cls_embedder = nn.Embedding(num_embeddings=self.num_cls + 1, embedding_dim=self.hidden_dim)
 
 
     def forward(self, seq, t, cls=None):
         time_embed = self.time_embedder(t)
         feat = self.embedder(seq)
         feat = feat + time_embed[:,None,:]
-        if self.args.cls_free_guidance and not self.classifier:
+        if self.cls_free_guidance and not self.classifier:
             feat = feat + self.cls_embedder(cls)[:, None, :]
         feat = self.mlp(feat)
         if self.classifier:
