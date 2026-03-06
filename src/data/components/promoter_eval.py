@@ -23,7 +23,7 @@ class SeiEval:
             cls._instance = super().__new__(cls)
             cls._instance._sei = NonStrandSpecific(Sei(4096, 21907))
             cls._instance._sei_features = (
-                pd.read_csv('data/promoter_design/target.sei.names', sep='|', header=None)
+                pd.read_csv('data/promoter/target.sei.names', sep='|', header=None)
             )
             cls._instance._sei_loaded = False
             cls._instance._sei_cache = {}
@@ -43,7 +43,7 @@ class SeiEval:
         if not self._sei_loaded:
             self._sei.load_state_dict(
                 upgrade_state_dict(
-                    torch.load('data/promoter_design/best.sei.model.pth.tar', map_location="cpu")['state_dict'],
+                    torch.load('data/promoter/best.sei.model.pth.tar', map_location="cpu")['state_dict'],
                     prefixes=["module."],
                 )
             )
