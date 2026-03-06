@@ -726,23 +726,27 @@ class Dense(nn.Module):
         return self.dense(x)[...]
 
 class MLPModel(nn.Module):
-    def __init__(self, alphabet_size, num_cls, hidden_dim, classifier=False, cls_expanded_simplex=False, cls_free_guidance=False):
+    def __init__(self, k: int, dim: int = 100, num_cls: int = 2, mode: str = None, 
+                 hidden_dim=256, classifier=False, cls_expanded_simplex=False, cls_free_guidance=False):
         super().__init__()
-        self.alphabet_size = alphabet_size
-        self.classifier = classifier
+        self.k = k
+        self.dim = dim
         self.num_cls = num_cls
+        self.mode = mode
         self.hidden_dim = hidden_dim
+        self.classifier = classifier
         self.cls_expanded_simplex = cls_expanded_simplex
         self.cls_free_guidance = cls_free_guidance
         
         self.time_embedder = nn.Sequential(GaussianFourierProjection(embed_dim= self.hidden_dim),nn.Linear(self.hidden_dim, self.hidden_dim))
-        self.embedder = nn.Linear((1 if classifier and not self.cls_expanded_simplex else 2) * self.alphabet_size,  self.hidden_dim)
+        expanded_simplex_input = (self.cls_expanded_simplex or not classifier) and (self.mode == 'dirichlet' or self.mode == 'riemannian')
+        self.embedder = nn.Linear((2 if expanded_simplex_input else 1) * self.dim, self.hidden_dim)
         self.mlp = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.hidden_dim if classifier else self.alphabet_size)
+            nn.Linear(self.hidden_dim, self.hidden_dim if classifier else self.k)
         )
         if classifier:
             self.cls_head = nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim),
@@ -752,9 +756,9 @@ class MLPModel(nn.Module):
             self.cls_embedder = nn.Embedding(num_embeddings=self.num_cls + 1, embedding_dim=self.hidden_dim)
 
 
-    def forward(self, seq, t, cls=None):
+    def forward(self, x, t, cls=None):
         time_embed = self.time_embedder(t)
-        feat = self.embedder(seq)
+        feat = self.embedder(x)
         feat = feat + time_embed[:,None,:]
         if self.cls_free_guidance and not self.classifier:
             feat = feat + self.cls_embedder(cls)[:, None, :]

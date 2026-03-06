@@ -5,14 +5,14 @@
 
 defaults:
   - override /data: toy_dfm
-  - override /model: toy_temb
+  - override /model: toy_mlp_dfm
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["toy_dfm", "cnn"]
+tags: ["toy_dfm", "mlp"]
 
 seed: 12345
 
@@ -20,16 +20,18 @@ trainer:
   min_epochs: 1
   max_epochs: 1000
   gradient_clip_val: 1.0
+  num_sanity_val_steps: 0
 
 model:
   optimizer:
-    lr: 0.001
+    lr: 0.0001
   net:
     k: ${data.k}
     dim: ${data.dim}
+    num_cls: 2
+    mode: "dirichlet"
   compile: false
-  manifold: sphere
-  kl_eval: true
+  mode: "dirichlet"
 
 data:
   batch_size: 512

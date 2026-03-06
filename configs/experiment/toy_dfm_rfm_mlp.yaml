@@ -5,14 +5,14 @@
 
 defaults:
   - override /data: toy_dfm
-  - override /model: rfm_cnn_model
+  - override /model: toy_mlp_rfm
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["toy_dfm", "cnn"]
+tags: ["toy_dfm", "mlp"]
 
 seed: 12345
 
@@ -28,15 +28,17 @@ model:
   net:
     k: ${data.k}
     dim: ${data.dim}
-    activation: lrelu
+    num_cls: 2
+    mode: "riemannian"
   compile: false
-  kl_eval: true
+  mode: "riemannian"
+  # kl_eval: true
   # ema: true
   # label_smoothing: 0.81
 
 data:
   batch_size: 128
-  k: 9
+  k: 4
   dim: 100
 
 logger:
