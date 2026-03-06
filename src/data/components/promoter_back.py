@@ -1202,20 +1202,20 @@ class PromoterDataset(torch.utils.data.Dataset):
         sep_x_y=False,
     ) -> None:
         class ModelParameters:
-            seifeatures_file = 'data/promoter_design/target.sei.names'
-            seimodel_file = 'data/promoter_design/best.sei.model.pth.tar'
+            seifeatures_file = 'data/promoter/target.sei.names'
+            seimodel_file = 'data/promoter/best.sei.model.pth.tar'
 
-            ref_file = 'data/promoter_design/Homo_sapiens.GRCh38.dna.primary_assembly.fa'
-            ref_file_mmap = 'data/promoter_design/Homo_sapiens.GRCh38.dna.primary_assembly.fa.mmap'
-            tsses_file = 'data/promoter_design/FANTOM_CAT.lv3_robust.tss.sortedby_fantomcage.hg38.v4.tsv'
+            ref_file = 'data/promoter/Homo_sapiens.GRCh38.dna.primary_assembly.fa'
+            ref_file_mmap = 'data/promoter/Homo_sapiens.GRCh38.dna.primary_assembly.fa.mmap'
+            tsses_file = 'data/promoter/FANTOM_CAT.lv3_robust.tss.sortedby_fantomcage.hg38.v4.tsv'
 
             fantom_files = [
-                "data/promoter_design/agg.plus.bw.bedgraph.bw",
-                "data/promoter_design/agg.minus.bw.bedgraph.bw"
+                "data/promoter/agg.plus.bw.bedgraph.bw",
+                "data/promoter/agg.minus.bw.bedgraph.bw"
             ]
             fantom_blacklist_files = [
-                "data/promoter_design/fantom.blacklist8.plus.bed.gz",
-                "data/promoter_design/fantom.blacklist8.minus.bed.gz"
+                "data/promoter/fantom.blacklist8.plus.bed.gz",
+                "data/promoter/fantom.blacklist8.minus.bed.gz"
             ]
 
             n_time_steps = 400

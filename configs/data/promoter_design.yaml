@@ -1,5 +1,5 @@
 _target_: src.data.PromoterDesignDataModule
-data_dir: ${paths.data_dir}/promoter_design
+data_dir: ${paths.data_dir}/promoter
 batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
 num_workers: 4
 pin_memory: False
