@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: promoter_design
-  - override /model: rfm_tmlp_signal
+  - override /model: rfm_bmlp_signal
   - override /callbacks: default
   - override /trainer: default
 

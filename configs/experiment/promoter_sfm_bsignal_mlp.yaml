@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: promoter_design
-  - override /model: bsignal_mlp
+  - override /model: sfm_bsignal_mlp
   - override /callbacks: default
   - override /trainer: default
 
