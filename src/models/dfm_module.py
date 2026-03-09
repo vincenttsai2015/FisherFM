@@ -232,7 +232,7 @@ class DNAModule(pl.LightningModule):
     @torch.no_grad()
     def distill_inference(self, seq):
         B, L = seq.shape
-        K = self.net.dim
+        K = self.net.k
         x0 = torch.distributions.Dirichlet(torch.ones(B, L, K, device=seq.device)).sample()
         logits = self.net(x0, t=torch.zeros(B, device=self.device))
         return logits
@@ -306,7 +306,8 @@ class DNAModule(pl.LightningModule):
 
     @torch.no_grad()
     def riemannian_flow_inference(self, seq):
-        B, L, K = seq.shape
+        B, L = seq.shape
+        K = self.net.k
         xt = torch.distributions.Dirichlet(torch.ones(B, L, K)).sample().to(self.device)
         eye = torch.eye(K).to(self.device)
 
