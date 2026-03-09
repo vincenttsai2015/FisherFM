@@ -740,7 +740,7 @@ class MLPModel(nn.Module):
         
         self.time_embedder = nn.Sequential(GaussianFourierProjection(embed_dim= self.hidden_dim),nn.Linear(self.hidden_dim, self.hidden_dim))
         expanded_simplex_input = (self.cls_expanded_simplex or not classifier) and (self.mode == 'dirichlet' or self.mode == 'riemannian')
-        self.embedder = nn.Linear((2 if expanded_simplex_input else 1) * self.dim, self.hidden_dim)
+        self.embedder = nn.Linear((2 if expanded_simplex_input else 1) * self.k, self.hidden_dim)
         self.mlp = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),

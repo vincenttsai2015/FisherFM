@@ -149,10 +149,15 @@ class DNAModule(pl.LightningModule):
         self.log("test/kl", self.estimate_kl(self.trainer.test_dataloaders.dataset.probs.to(self.device), self.kl_samples), on_step=False, on_epoch=True, prog_bar=False)
 
     def general_step(self, batch, batch_idx=None):
-        seq = batch
-        B = seq.size(0)
+        if len(batch) == 2:
+            seq, cls = batch
+        else:
+            seq = batch
+            cls = None
+        print(f'seq before sample cond prob path: {seq.shape}, cls before sample cond prob path: {cls.shape if cls is not None else None}')
+        B, L = seq.shape
 
-        xt, alphas = sample_cond_prob_path(self.mode, self.fix_alpha, self.alpha_scale, seq, self.net.dim)
+        xt, alphas = sample_cond_prob_path(self.mode, self.fix_alpha, self.alpha_scale, seq, self.net.k)
         if self.mode == 'distill':
             if self.stage == 'val':
                 seq_distill = torch.zeros_like(seq, device=self.device)
@@ -172,19 +177,29 @@ class DNAModule(pl.LightningModule):
                 cls_inp = torch.where(torch.rand(B, device=self.device) >= self.cls_free_noclass_ratio, cls.squeeze(), self.net.num_cls) # set fraction of the classes to the unconditional class
         else:
             cls_inp = None
-        if alphas.dim() == 1:
-            alphas = alphas.unsqueeze(-1)
+        # if alphas.dim() == 1:
+        #     alphas = alphas.unsqueeze(-1)
+        
         logits = self.net(xt_inp, t=alphas, cls=cls_inp)
+        print(f'logits after self.net: {logits.shape}')
+        # logits = logits.reshape(-1, logits.shape[-1])
+        # B, T, L, C = logits.shape
+
+        # logits = logits.reshape(B*T*L, C)
+        # seq = seq.unsqueeze(1).expand(-1, T, -1).reshape(B*T*L)
+        # print(f'logits after reshaping: {logits.shape}, seq (target) after reshaping: {seq.shape}')
+
         losses = torch.nn.functional.cross_entropy(
             logits.transpose(1, 2),
-            seq_distill if self.mode == 'distill' else seq.argmax(dim=-1),
+            seq_distill if self.mode == 'distill' else seq,
             reduction='mean',
         )
 
         # self.log('perplexity', torch.exp(losses.mean())[None].expand(B))
         if self.stage == "val":
+            # seq = seq.reshape(B, T, L)
             if self.mode == 'dirichlet':
-                logits_pred, _ = self.dirichlet_flow_inference(seq, None, model=self.net)
+                logits_pred, _ = self.dirichlet_flow_inference(seq, cls, model=self.net)
                 seq_pred = torch.argmax(logits_pred, dim=-1)
             elif self.mode == 'riemannian':
                 logits_pred = self.riemannian_flow_inference(seq)
@@ -224,7 +239,8 @@ class DNAModule(pl.LightningModule):
 
     @torch.no_grad()
     def dirichlet_flow_inference(self, seq, cls, model):
-        B, L, K = seq.shape
+        B, L = seq.shape
+        K = model.k
         x0 = torch.distributions.Dirichlet(torch.ones(B, L, K, device=seq.device)).sample()
         eye = torch.eye(K).to(x0)
         xt = x0.clone()
@@ -255,12 +271,15 @@ class DNAModule(pl.LightningModule):
                         flow_probs = self.get_cls_free_guided_flow(xt, s + 1e-4, logits_uncond, logits)
 
             else:
-                logits = model(xt_expanded, t=s[None].expand(B).unsqueeze(-1))
+                logits = model(xt_expanded, t=s[None].expand(B))
                 flow_probs = torch.nn.functional.softmax(logits / self.flow_temp, -1) # [B, L, K]
 
             if self.cls_guidance:
                 probs_cond, _ = self.get_cls_guided_flow(xt, s + 1e-4, flow_probs)
                 flow_probs = probs_cond * self.guidance_scale + flow_probs * (1 - self.guidance_scale)
+            
+            print(f'flow_probs at step {i}: {flow_probs.shape}, min: {flow_probs.min()}, max: {flow_probs.max()}')
+            assert flow_probs.shape == (B, L, K)
 
             if not torch.allclose(flow_probs.sum(2), torch.ones((B, L), device=self.device), atol=1e-4) or not (flow_probs >= 0).all():
                 print(f'WARNING: flow_probs.min(): {flow_probs.min()}. Some values of flow_probs do not lie on the simplex. There are we are {(flow_probs<0).sum()} negative values in flow_probs of shape {flow_probs.shape} that are negative. We are projecting them onto the simplex.')

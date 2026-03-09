@@ -4,6 +4,7 @@ import hydra
 import lightning as L
 import rootutils
 import torch
+torch.set_float32_matmul_precision("high")
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig

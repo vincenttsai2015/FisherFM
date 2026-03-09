@@ -90,29 +90,28 @@ def sample_cond_prob_path(mode, fix_alpha, alpha_scale, seq, alphabet_size):
     #import pdb; pdb.set_trace()
     B = seq.shape[0]
     L = seq.shape[1]
-    #seq_one_hot = seq
-    # seq_one_hot = torch.nn.functional.one_hot(seq, num_classes=alphabet_size)
+    seq_one_hot = torch.nn.functional.one_hot(seq, num_classes=alphabet_size)
     # seq 是 index: (B, L) 且整數 -> 轉 one-hot
-    if seq.ndim == 2:
-        if seq.dtype not in (torch.int32, torch.int64, torch.long):
-            seq = seq.long()
-        L = seq.shape[1]
-        if alphabet_size is None:
-            raise ValueError("alphabet_size must be provided when seq is index tensor")
-        seq_one_hot = torch.nn.functional.one_hot(seq, num_classes=alphabet_size).float()
+    # if seq.ndim == 2:
+    #     if seq.dtype not in (torch.int32, torch.int64, torch.long):
+    #         seq = seq.long()
+    #     L = seq.shape[1]
+    #     if alphabet_size is None:
+    #         raise ValueError("alphabet_size must be provided when seq is index tensor")
+    #     seq_one_hot = torch.nn.functional.one_hot(seq, num_classes=alphabet_size).float()
 
     # seq 已經是 one-hot: (B, L, K)
-    elif seq.ndim == 3:
-        L = seq.shape[1]
-        K = seq.shape[2]
-        if alphabet_size is None:
-            alphabet_size = K
-        else:
-            assert alphabet_size == K, f"alphabet_size={alphabet_size} but seq last dim={K}"
-        seq_one_hot = seq.float()
+    # elif seq.ndim == 3:
+    #     L = seq.shape[1]
+    #     K = seq.shape[2]
+    #     if alphabet_size is None:
+    #         alphabet_size = K
+    #     else:
+    #         assert alphabet_size == K, f"alphabet_size={alphabet_size} but seq last dim={K}"
+    #     seq_one_hot = seq.float()
 
-    else:
-        raise ValueError(f"Unexpected seq shape: {seq.shape}")
+    # else:
+    #     raise ValueError(f"Unexpected seq shape: {seq.shape}")
 
     if mode == 'dirichlet':
         alphas = torch.from_numpy(1 + scipy.stats.expon().rvs(size=B) * alpha_scale).to(seq.device).float()
