@@ -137,6 +137,7 @@ class DNAModule(pl.LightningModule):
             while to_draw > 0:
                 n = min(to_draw, 2048)
                 x_0 = Dirichlet(concentration).sample((n,))
+                print(f'x_0.shape: {x_0.shape}, min: {x_0.min()}, max: {x_0.max()}')
                 samples = self.dirichlet_flow_inference(x_0, None, self.net)[1]
                 acc += torch.nn.functional.one_hot(samples.argmax(dim=-1), self.net.dim).sum(dim=0)
                 to_draw -= n
