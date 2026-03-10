@@ -44,11 +44,17 @@ class ToyDataset(torch.utils.data.IterableDataset):
 
     def __iter__(self):
         while True:
-            cls = np.random.choice(a=self.num_cls, size=1, p=self.class_probs)
+            cls = np.random.choice(self.num_cls, p=self.class_probs)
+
             seq = []
             for i in range(self.seq_len):
-                seq.append(torch.multinomial(replacement=True,num_samples=1,input=self.probs[cls,i,:]))
-            yield torch.tensor(seq), cls
+                token = torch.multinomial(input=self.probs[cls, i, :], num_samples=1, replacement=True)
+                seq.append(token)
+
+            seq = torch.cat(seq)
+            # seq = torch.nn.functional.one_hot(seq, num_classes=self.alphabet_size).float() # for SFM
+
+            yield seq, cls
         # while True:
         #     sample = torch.multinomial(replacement=True, num_samples=1, input=self.probs).squeeze()
         #     one_hot = nn.functional.one_hot(sample, self.alphabet_size).float()

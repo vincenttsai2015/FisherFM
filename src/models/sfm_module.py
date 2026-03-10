@@ -179,6 +179,8 @@ class SFMModule(LightningModule):
         Perform a single model step on a batch of data.
         """
         # points are on the simplex
+        x_1 = x_1.float()
+        print("x_1 shape:", x_1.shape)
         x_1 = self.manifold.project(x_1)
         return ot_train_step(
             self.manifold.smooth_labels(x_1, mx=self.smoothing) if self.smoothing else x_1,

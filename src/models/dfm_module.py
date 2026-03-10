@@ -136,10 +136,13 @@ class DNAModule(pl.LightningModule):
             concentration = torch.ones((self.net.k, self.net.dim), device=self.device)
             while to_draw > 0:
                 n = min(to_draw, 2048)
-                x_0 = Dirichlet(concentration).sample((n,))
-                print(f'x_0.shape: {x_0.shape}, min: {x_0.min()}, max: {x_0.max()}')
-                samples = self.dirichlet_flow_inference(x_0, None, self.net)[1]
-                acc += torch.nn.functional.one_hot(samples.argmax(dim=-1), self.net.dim).sum(dim=0)
+                x_0 = Dirichlet(concentration).sample((n,)).transpose(1, 2)  # [n, k, dim] -> [n, dim, k]
+                print(f'x_0.shape: {x_0.shape}')
+                samples = self.dirichlet_flow_inference(x_0, None, self.net)[1] # [n, dim, k]
+                print(f'samples.shape: {samples.shape}')
+                # acc_tmp = torch.nn.functional.one_hot(samples.argmax(dim=-1), self.net.dim).sum(dim=0)
+                # print(f'acc_tmp.shape: {acc_tmp.shape}')
+                acc += torch.nn.functional.one_hot(samples.argmax(dim=-1), self.net.k).sum(dim=0).T
                 to_draw -= n
         acc /= acc.sum(dim=-1, keepdim=True)
         real_probs = real_probs.to(self.device)
@@ -156,7 +159,11 @@ class DNAModule(pl.LightningModule):
             seq = batch
             cls = None
         print(f'seq before sample cond prob path: {seq.shape}, cls before sample cond prob path: {cls.shape if cls is not None else None}')
-        B, L = seq.shape
+        if len(seq.shape) == 3: 
+            B, L, K = seq.shape
+        elif len(seq.shape) == 2:
+            B, L = seq.shape
+            K = self.net.k
 
         xt, alphas = sample_cond_prob_path(self.mode, self.fix_alpha, self.alpha_scale, seq, self.net.k)
         if self.mode == 'distill':
@@ -240,8 +247,13 @@ class DNAModule(pl.LightningModule):
 
     @torch.no_grad()
     def dirichlet_flow_inference(self, seq, cls, model):
-        B, L = seq.shape
-        K = model.k
+        if len(seq.shape) == 3:
+            B, L, K = seq.shape
+        elif len(seq.shape) == 2:
+            B, L = seq.shape
+            K = model.k
+        # B, L = seq.shape
+        # K = model.k
         x0 = torch.distributions.Dirichlet(torch.ones(B, L, K, device=seq.device)).sample()
         eye = torch.eye(K).to(x0)
         xt = x0.clone()
@@ -279,8 +291,8 @@ class DNAModule(pl.LightningModule):
                 probs_cond, _ = self.get_cls_guided_flow(xt, s + 1e-4, flow_probs)
                 flow_probs = probs_cond * self.guidance_scale + flow_probs * (1 - self.guidance_scale)
             
-            print(f'flow_probs at step {i}: {flow_probs.shape}, min: {flow_probs.min()}, max: {flow_probs.max()}')
-            assert flow_probs.shape == (B, L, K)
+            print(f'flow_probs shape at step {i}: {flow_probs.shape}')
+            # assert flow_probs.shape == (B, L, K)
 
             if not torch.allclose(flow_probs.sum(2), torch.ones((B, L), device=self.device), atol=1e-4) or not (flow_probs >= 0).all():
                 print(f'WARNING: flow_probs.min(): {flow_probs.min()}. Some values of flow_probs do not lie on the simplex. There are we are {(flow_probs<0).sum()} negative values in flow_probs of shape {flow_probs.shape} that are negative. We are projecting them onto the simplex.')

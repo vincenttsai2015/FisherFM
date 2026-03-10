@@ -757,6 +757,8 @@ class MLPModel(nn.Module):
 
 
     def forward(self, x, t, cls=None):
+        # print("x shape before embed:", x.shape)
+        # print("embedder weight:", self.embedder.weight.shape)
         time_embed = self.time_embedder(t)
         feat = self.embedder(x)
         feat = feat + time_embed[:,None,:]
