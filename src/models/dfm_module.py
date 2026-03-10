@@ -148,7 +148,7 @@ class DNAModule(pl.LightningModule):
         print(f'acc (estimated probs) shape: {acc.shape}')
         real_probs = real_probs.to(self.device)
         print(f'real_probs shape: {real_probs.shape}')
-        kl = (acc * (acc.log() - real_probs.log())).sum(dim=-1).mean().item()
+        kl = (acc.T * (acc.T.log() - real_probs.log())).sum(dim=-1).mean().item()
         return kl
 
     def on_test_epoch_end(self):
