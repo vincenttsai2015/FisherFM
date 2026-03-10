@@ -179,8 +179,6 @@ class SFMModule(LightningModule):
         Perform a single model step on a batch of data.
         """
         # points are on the simplex
-        x_1 = x_1.float()
-        print("x_1 shape:", x_1.shape)
         x_1 = self.manifold.project(x_1)
         return ot_train_step(
             self.manifold.smooth_labels(x_1, mx=self.smoothing) if self.smoothing else x_1,
@@ -235,6 +233,10 @@ class SFMModule(LightningModule):
         signal = None
         if isinstance(x_1, list):
             x_1, signal = x_1
+            x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
+            print("x_1 shape:", x_1.shape)
+            # x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.hparams.data.k).float()
+            
             # Only one of the two signal inputs is used (the first one)
             if len(signal.shape) == 3:
                 signal = signal[:, :, 0].unsqueeze(-1)
@@ -264,6 +266,9 @@ class SFMModule(LightningModule):
         signal = None
         if isinstance(x_1, list):
             x_1, signal = x_1
+            x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()
+            print("x_1 shape:", x_1.shape)
+            
             # Only one of the two signal inputs is used (the first one)
             if len(signal.shape) == 3:
                 signal = signal[:, :, 0].unsqueeze(-1)
@@ -323,6 +328,8 @@ class SFMModule(LightningModule):
         signal = None
         if isinstance(x_1, list):
             x_1, signal = x_1
+            x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
+            print("x_1 shape:", x_1.shape)
             # Only one of the two signal inputs is used (the first one)
             if len(signal.shape) == 3:
                 signal = signal[:, :, 0].unsqueeze(-1)

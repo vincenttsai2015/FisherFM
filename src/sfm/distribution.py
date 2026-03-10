@@ -86,10 +86,9 @@ def estimate_categorical_kl(
     if n % batch != 0:
         to_sample += [n % batch]
     for draw in (tqdm.tqdm(to_sample) if not silent else to_sample):
-        x_0 = manifold.uniform_prior(
-            draw, real_dist.size(0), real_dist.size(1),
-        ).to(real_dist.device)
-
+        print(f'real_dist shape: {real_dist.shape}')
+        x_0 = manifold.uniform_prior(draw, real_dist.size(1), real_dist.size(2)).to(real_dist.device)
+        print(f'x_0.shape: {x_0.shape}')
         x_1 = manifold.tangent_euler(x_0, model, inference_steps, tangent=tangent)
         x_1 = manifold.send_to(x_1, NSimplex)
         if sampling_mode == "sample":
@@ -99,10 +98,7 @@ def estimate_categorical_kl(
             # samples = dist.sample()
             # acc += samples.sum(dim=0)
         else:
-            samples = nn.functional.one_hot(
-                x_1.argmax(dim=-1),
-                real_dist.size(-1),
-            )
+            samples = nn.functional.one_hot(x_1.argmax(dim=-1), real_dist.size(-1))
             acc += samples.sum(dim=0)
     acc = acc.float()
     acc /= n
