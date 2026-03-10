@@ -72,7 +72,7 @@ class ToyDFMDataModule(LightningDataModule):
         k: int = 4,
         dim: int = 100,
         num_cls: int = 2,
-        seq_len: int = 10,
+        seq_len: int = 100,
         data_dir: str = "data/",
         train_val_test_split: tuple[int, int, int] = (55_000, 5_000, 10_000),
         batch_size: int = 64,

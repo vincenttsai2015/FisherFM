@@ -36,6 +36,7 @@ model:
 data:
   batch_size: 512
   k: 4
+  seq_len: 100
   dim: 100
 
 logger:
