@@ -155,6 +155,7 @@ class DNAModule(pl.LightningModule):
         self.log("test/kl", self.estimate_kl(self.trainer.test_dataloaders.dataset.probs.to(self.device), self.kl_samples), on_step=False, on_epoch=True, prog_bar=False)
 
     def general_step(self, batch, batch_idx=None):
+        print(f'len(batch): {len(batch)}, batch[0].shape: {batch[0].shape}, batch[1].shape: {batch[1].shape if len(batch) > 1 else None}')
         if len(batch) == 2:
             seq, cls = batch
         else:
@@ -166,6 +167,7 @@ class DNAModule(pl.LightningModule):
         elif len(seq.shape) == 2:
             B, L = seq.shape
             K = self.net.k
+        print(f'B: {B}, L: {L}, K: {K}')
 
         xt, alphas = sample_cond_prob_path(self.mode, self.fix_alpha, self.alpha_scale, seq, self.net.k)
         if self.mode == 'distill':
@@ -177,7 +179,7 @@ class DNAModule(pl.LightningModule):
             alphas = alphas * 0
         xt_inp = xt
         if self.mode == 'dirichlet' or self.mode == 'riemannian':
-            xt_inp, _ = expand_simplex(xt,alphas, self.prior_pseudocount)
+            xt_inp, _ = expand_simplex(xt, alphas, self.prior_pseudocount)
 
         if self.cls_free_guidance:
             if self.binary_guidance:
@@ -187,17 +189,9 @@ class DNAModule(pl.LightningModule):
                 cls_inp = torch.where(torch.rand(B, device=self.device) >= self.cls_free_noclass_ratio, cls.squeeze(), self.net.num_cls) # set fraction of the classes to the unconditional class
         else:
             cls_inp = None
-        # if alphas.dim() == 1:
-        #     alphas = alphas.unsqueeze(-1)
         
         logits = self.net(xt_inp, t=alphas, cls=cls_inp)
         print(f'logits after self.net: {logits.shape}')
-        # logits = logits.reshape(-1, logits.shape[-1])
-        # B, T, L, C = logits.shape
-
-        # logits = logits.reshape(B*T*L, C)
-        # seq = seq.unsqueeze(1).expand(-1, T, -1).reshape(B*T*L)
-        # print(f'logits after reshaping: {logits.shape}, seq (target) after reshaping: {seq.shape}')
 
         losses = torch.nn.functional.cross_entropy(
             logits.transpose(1, 2),
@@ -254,8 +248,6 @@ class DNAModule(pl.LightningModule):
         elif len(seq.shape) == 2:
             B, L = seq.shape
             K = model.k
-        # B, L = seq.shape
-        # K = model.k
         x0 = torch.distributions.Dirichlet(torch.ones(B, L, K, device=seq.device)).sample()
         eye = torch.eye(K).to(x0)
         xt = x0.clone()

@@ -805,20 +805,12 @@ class CNNModel(nn.Module):
             self.linear = nn.Embedding(self.dim, embedding_dim=hidden)
         else:
             expanded_simplex_input = self.cls_expanded_simplex or not classifier and (self.mode == 'dirichlet' or self.mode == 'riemannian')
-            inp_size = self.dim * (2 if expanded_simplex_input else 1)
+            inp_size = self.k * (2 if expanded_simplex_input else 1)
             print("input size is %d" % (inp_size))
             if (self.mode == 'ardm' or self.mode == 'lrar') and not classifier:
                 inp_size += 1 # plus one for the mask token of these models
             self.linear = nn.Conv1d(inp_size, self.hidden, kernel_size=9, padding=4)
-            self.time_embedder = nn.Sequential(
-                                                GaussianFourierProjection(
-                                                    embed_dim=self.hidden
-                                                    ),
-                                                nn.Linear(
-                                                    self.hidden,
-                                                    self.hidden
-                                                    )
-                                                )
+            self.time_embedder = nn.Sequential(GaussianFourierProjection(embed_dim=self.hidden), nn.Linear(self.hidden,self.hidden))
 
         self.num_layers = 5 * self.depth
         self.convs = [nn.Conv1d(self.hidden, self.hidden, kernel_size=9, padding=4),
@@ -830,9 +822,8 @@ class CNNModel(nn.Module):
         self.time_layers = nn.ModuleList([Dense(self.hidden, self.hidden) for _ in range(self.num_layers)])
         self.norms = nn.ModuleList([nn.LayerNorm(self.hidden) for _ in range(self.num_layers)])
         self.final_conv = nn.Sequential(nn.Conv1d(self.hidden, self.hidden, kernel_size=1),
-                                   nn.ReLU(),
-                                   nn.Conv1d(self.hidden, self.hidden
-                                       if classifier else self.dim, kernel_size=1))
+                                        nn.ReLU(),
+                                        nn.Conv1d(self.hidden, self.hidden if classifier else self.k, kernel_size=1))
         self.dropout = nn.Dropout(self.dropout)
         if classifier:
             self.cls_head = nn.Sequential(nn.Linear(self.hidden, self.hidden),
@@ -842,23 +833,13 @@ class CNNModel(nn.Module):
             self.cls_embedder = nn.Embedding(num_embeddings=self.num_cls + 1, embedding_dim=self.hidden)
             self.cls_layers = nn.ModuleList([Dense(self.hidden, self.hidden) for _ in range(self.num_layers)])
 
-    def forward(self, x, t: Tensor | None, cls = None, return_embedding=False):
-        if t is not None:
-            seq = x.view(-1, self.k, self.dim)
-        else:
-            # classifier mode
-            seq = x
-        if t is not None and len(t.shape) == 0:
-            # odeint is on
-            t = t[None].expand(seq.size(0))
+    def forward(self, x, t: Tensor, cls = None, return_embedding=False):
         if self.clean_data:
-            feat = self.linear(seq)
+            feat = self.linear(x)
             feat = feat.permute(0, 2, 1)
         else:
-            if len(t.shape) > 1:
-                t = t.squeeze()
             time_emb = F.relu(self.time_embedder(t))
-            feat = seq.permute(0, 2, 1)
+            feat = x.permute(0, 2, 1)
             feat = F.relu(self.linear(feat))
 
         if self.cls_free_guidance and not self.classifier:

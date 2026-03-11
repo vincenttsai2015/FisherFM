@@ -103,7 +103,7 @@ def estimate_categorical_kl(
             samples = nn.functional.one_hot(x_1.argmax(dim=-1), real_dist.size(-1))
             print(f'samples shape: {samples.shape}')
             # acc += samples.sum(dim=0)
-            acc += samples.sum(dim=0) / samples.shape[0]
+            acc += samples.mean(dim=(0,1))
     acc = acc.float()
     acc /= n
     # acc.clamp_min_(1e-12)
