@@ -93,16 +93,17 @@ def estimate_categorical_kl(
         print(f'x_1.shape: {x_1.shape}')
         x_1 = manifold.send_to(x_1, NSimplex)
         print(f'x_1.shape after mapping: {x_1.shape}')
-        if sampling_mode == "sample":
-            # TODO: remove or fix for Categorical
-            raise NotImplementedError("Sampling from Dirichlet not implemented")
-            # dist = Dirichlet(x_1)
-            # samples = dist.sample()
-            # acc += samples.sum(dim=0)
+        if sampling_mode == "sample": # TODO: remove or fix for Categorical
+            # raise NotImplementedError("Sampling from Dirichlet not implemented")
+            dist = torch.distributions.Dirichlet(x_1)
+            samples = dist.sample()
+            print(f'samples shape: {samples.shape}')
+            acc += samples.sum(dim=0)
         else:
             samples = nn.functional.one_hot(x_1.argmax(dim=-1), real_dist.size(-1))
             print(f'samples shape: {samples.shape}')
-            acc += samples.sum(dim=0)
+            # acc += samples.sum(dim=0)
+            acc += samples.sum(dim=0) / samples.shape[0]
     acc = acc.float()
     acc /= n
     # acc.clamp_min_(1e-12)
