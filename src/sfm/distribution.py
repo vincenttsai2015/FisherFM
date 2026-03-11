@@ -90,7 +90,9 @@ def estimate_categorical_kl(
         x_0 = manifold.uniform_prior(draw, real_dist.size(1), real_dist.size(2)).to(real_dist.device)
         print(f'x_0.shape: {x_0.shape}')
         x_1 = manifold.tangent_euler(x_0, model, inference_steps, tangent=tangent)
+        print(f'x_1.shape: {x_1.shape}')
         x_1 = manifold.send_to(x_1, NSimplex)
+        print(f'x_1.shape after mapping: {x_1.shape}')
         if sampling_mode == "sample":
             # TODO: remove or fix for Categorical
             raise NotImplementedError("Sampling from Dirichlet not implemented")
@@ -99,6 +101,7 @@ def estimate_categorical_kl(
             # acc += samples.sum(dim=0)
         else:
             samples = nn.functional.one_hot(x_1.argmax(dim=-1), real_dist.size(-1))
+            print(f'samples shape: {samples.shape}')
             acc += samples.sum(dim=0)
     acc = acc.float()
     acc /= n
