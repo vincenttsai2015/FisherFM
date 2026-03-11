@@ -1,16 +1,15 @@
 from typing import Any
 import os
 import numpy as np
+
 import torch
 from torch import Tensor, nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 from lightning import LightningDataModule
-
 
 from src.sfm import manifold_from_name
 
-
-class ToyDataset(torch.utils.data.IterableDataset):
+class ToyDataset(IterableDataset):
     """
     Adapted from `https://github.com/HannesStark/dirichlet-flow-matching/blob/main/utils/dataset.py`.
     """
