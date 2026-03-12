@@ -15,7 +15,7 @@ scheduler:
 
 net:
   _target_: src.models.net.model.MLPModel
-  hidden_dim: 512
+  hidden_dim: 64
 
 
 compile: false

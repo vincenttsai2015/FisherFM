@@ -126,14 +126,18 @@ class Manifold(ABC):
 
         dt = torch.tensor(1.0 / steps, device=x_0.device)
         x = x_0
-        t = torch.zeros((x.size(0), 1), device=x_0.device, dtype=x_0.dtype)
+        print(f'x_0 shape: {x_0.shape}')
+        t = torch.zeros((x.size(0),), device=x_0.device, dtype=x_0.dtype)
+        print(f'initial t shape: {t.shape}')
         for _ in range(steps):
             if tangent:
                 x = self.exp_map(x, model(x=x, t=t) * dt)
             else:
                 x = x + model(x=x, t=t) * dt
+            print(f'x shape: {x.shape}')
             x = self.project(x)
             t += dt
+            print(f't shape: {t.shape}')
         return x
 
     @torch.no_grad()

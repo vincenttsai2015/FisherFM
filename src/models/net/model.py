@@ -834,6 +834,7 @@ class CNNModel(nn.Module):
             self.cls_layers = nn.ModuleList([Dense(self.hidden, self.hidden) for _ in range(self.num_layers)])
 
     def forward(self, x, t: Tensor, cls = None, return_embedding=False):
+        print(f"input x shape = {x.shape}")
         if self.clean_data:
             feat = self.linear(x)
             feat = feat.permute(0, 2, 1)
@@ -847,10 +848,19 @@ class CNNModel(nn.Module):
 
         for i in range(self.num_layers):
             h = self.dropout(feat.clone())
+            print(f"h shape before time add = {h.shape}")
+            # tmp = self.time_layers[i](time_emb)
+            print(f"time_emb shape = {time_emb.shape}")
+            # print(f"projected time shape = {tmp.shape}")
+            # print(f"projected time unsqueezed = {tmp[:, :, None].shape}")
             if not self.clean_data:
-                h = h + self.time_layers[i](time_emb)[:, :, None]
+                time_feat = self.time_layers[i](time_emb).squeeze(1)
+                # h = h + self.time_layers[i](time_emb)[:, :, None]
+                h = h + time_feat[:, :, None]
             if self.cls_free_guidance and not self.classifier:
-                h = h + self.cls_layers[i](cls_emb)[:, :, None]
+                cls_feat = self.cls_layers[i](cls_emb).squeeze(1)
+                # h = h + self.cls_layers[i](cls_emb)[:, :, None]
+                h = h + cls_feat[:, :, None]
             h = self.norms[i]((h).permute(0, 2, 1))
             h = F.relu(self.convs[i](h.permute(0, 2, 1)))
             if h.shape == feat.shape:
