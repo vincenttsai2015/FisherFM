@@ -136,19 +136,38 @@ class DNAModule(pl.LightningModule):
             concentration = torch.ones((self.net.k, self.net.dim), device=self.device)
             while to_draw > 0:
                 n = min(to_draw, 2048)
-                x_0 = Dirichlet(concentration).sample((n,)).transpose(1, 2)  # [n, k, dim] -> [n, dim, k]
-                print(f'x_0.shape: {x_0.shape}')
-                samples = self.dirichlet_flow_inference(x_0, None, self.net)[1] # [n, dim, k]
-                print(f'samples.shape: {samples.shape}')
-                # acc_tmp = torch.nn.functional.one_hot(samples.argmax(dim=-1), self.net.dim).sum(dim=0)
-                # print(f'acc_tmp.shape: {acc_tmp.shape}')
-                acc += torch.nn.functional.one_hot(samples.argmax(dim=-1), self.net.k).sum(dim=0).T
+                x_0 = Dirichlet(concentration).sample((n,)).transpose(1, 2)  # [n, dim, k]
+                samples = self.dirichlet_flow_inference(x_0, None, self.net)[1]  # [n, dim, k]
+
+                counts = torch.nn.functional.one_hot(
+                    samples.argmax(dim=-1), self.net.k
+                ).sum(dim=0)   # [dim, k]
+
+                acc += counts.T   # [k, dim]
                 to_draw -= n
-        acc /= acc.sum(dim=-1, keepdim=True)
-        print(f'acc (estimated probs) shape: {acc.shape}')
-        real_probs = real_probs.to(self.device)
-        print(f'real_probs shape: {real_probs.shape}')
-        kl = (acc.T * (acc.T.log() - real_probs.log())).sum(dim=-1).mean().item()
+
+        # 每個 pixel 的類別分布要加總為 1，所以沿 k 維 normalize
+        acc /= acc.sum(dim=0, keepdim=True)
+        real_probs = real_probs.to(self.device).mean(dim=0)   # [dim, k]
+
+        print("acc shape:", acc.shape)                # [k, dim]
+        print("acc.T shape:", acc.T.shape)            # [dim, k]
+        print("real_probs shape:", real_probs.shape)  # [dim, k]
+        print("acc min/max:", acc.min().item(), acc.max().item())
+        print("real min/max:", real_probs.min().item(), real_probs.max().item())
+        print("acc zeros:", (acc == 0).sum().item())
+        print("real zeros:", (real_probs == 0).sum().item())
+        print("acc per-pixel sums first 10:", acc.sum(dim=0)[:10])
+        print("real per-pixel sums first 10:", real_probs.sum(dim=-1)[:10])
+
+        eps = 1e-8
+        est = acc.T.clamp_min(eps)          # [dim, k]
+        real = real_probs.clamp_min(eps)    # [dim, k]
+
+        est = est / est.sum(dim=-1, keepdim=True)
+        real = real / real.sum(dim=-1, keepdim=True)
+
+        kl = (est * (est.log() - real.log())).sum(dim=-1).mean().item()
         return kl
 
     def on_test_epoch_end(self):
