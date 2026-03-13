@@ -4,6 +4,8 @@ out/
 wandb/
 slurm/
 data/
+!configs/data/
+!src/data/
 .pytest_cache/
 logs/
 *.csv
