@@ -1,4 +1,4 @@
-_target_: src.models.SFMModule
+_target_: src.models.sfm_module.SFMModule
 
 optimizer:
   _target_: torch.optim.AdamW

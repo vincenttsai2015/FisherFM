@@ -1,4 +1,4 @@
-_target_: src.models.DNAModule
+_target_: src.models.dfm_module.DNAModule
 
 optimizer:
   _target_: torch.optim.AdamW
