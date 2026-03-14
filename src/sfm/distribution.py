@@ -78,6 +78,8 @@ def estimate_categorical_kl(
         the real distribution, i.e., "KL(model || real_dist)".
     """
     assert sampling_mode in ["sample", "max"], "not a valid sampling mode"
+    print("real_dist initial shape:", real_dist.shape)
+    print("real_dist initial min/max:", real_dist.min().item(), real_dist.max().item())
     # init acc
     acc = torch.zeros_like(real_dist, device=real_dist.device).int()
 
@@ -105,9 +107,23 @@ def estimate_categorical_kl(
             acc += samples.sum(dim=0)
     acc = acc.float()
     acc /= n
-    # acc.clamp_min_(1e-12)
+    
+    print("acc shape after normalization:", acc.shape)
+    print("acc min/max:", acc.min().item(), acc.max().item())
+    print("acc zeros:", (acc == 0).sum().item())
+    print("real_dist zeros:", (real_dist == 0).sum().item())
+    print("acc row sums first 10:", acc.sum(dim=-1)[:10])
+    print("real_dist row sums first 10:", real_dist.sum(dim=-1)[:10])
+
+    eps = 1e-8
+    acc = acc.clamp_min(eps)
+    real_dist = real_dist.clamp_min(eps)
+
+    acc = acc / acc.sum(dim=-1, keepdim=True)
+    real_dist = real_dist / real_dist.sum(dim=-1, keepdim=True)
     if not silent:
         print(acc)
+
     ret = (acc * (acc.log() - real_dist.log())).sum(dim=-1).mean().item()
     return ret
 
