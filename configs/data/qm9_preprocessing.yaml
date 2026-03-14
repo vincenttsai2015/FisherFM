@@ -1,0 +1,6 @@
+dataset:
+    raw_data_dir: data/qm9/raw
+    processed_data_dir: data/qm9/processed
+    dataset_name: qm9
+    dataset_size: 130831
+    atom_map: ['C', 'H', 'N', 'O', 'F'] # 'P', 'S', 'Cl', 'Br', 'I'
