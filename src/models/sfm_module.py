@@ -233,8 +233,13 @@ class SFMModule(LightningModule):
         signal = None
         if isinstance(x_1, list):
             x_1, signal = x_1
-            x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
-            print("x_1 shape:", x_1.shape)
+            print(f'x_1.shape: {x_1.shape}')
+            print(f'x_1.dtype: {x_1.dtype}')
+            print(f'self.net.model.k: {self.net.model.k}')
+            print(f'self.net.model.dim: {self.net.model.dim}')
+            if x_1.dtype == torch.long:
+                x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
+            print(f'x_1 shape: {x_1.shape}')
             # x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.hparams.data.k).float()
             
             # Only one of the two signal inputs is used (the first one)
@@ -266,7 +271,8 @@ class SFMModule(LightningModule):
         signal = None
         if isinstance(x_1, list):
             x_1, signal = x_1
-            x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()
+            if x_1.dtype == torch.long:
+                x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
             print("x_1 shape:", x_1.shape)
             
             # Only one of the two signal inputs is used (the first one)
@@ -328,7 +334,8 @@ class SFMModule(LightningModule):
         signal = None
         if isinstance(x_1, list):
             x_1, signal = x_1
-            x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
+            if x_1.dtype == torch.long:
+                x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
             print("x_1 shape:", x_1.shape)
             # Only one of the two signal inputs is used (the first one)
             if len(signal.shape) == 3:
