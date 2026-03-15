@@ -37,7 +37,7 @@ class Dense(nn.Module):
 class PromoterModel(nn.Module):
     """A time-dependent score-based model built upon U-Net architecture."""
 
-    def __init__(self, mode, embed_dim=256, time_dependent_weights=None, time_step=0.01):
+    def __init__(self, mode, k=4, dim=500, embed_dim=256, time_dependent_weights=None, time_step=0.01):
         """Initialize a time-dependent score-based network.
 
         Args:
@@ -48,13 +48,14 @@ class PromoterModel(nn.Module):
         """
         super().__init__()
         # Gaussian random feature embedding layer for time
-        self.alphabet_size = 4
+        self.k = k
+        self.dim = dim
         self.embed = nn.Sequential(GaussianFourierProjection(embed_dim=embed_dim),
                                    nn.Linear(embed_dim, embed_dim))
         n = 256
         expanded_simplex_input = (mode == 'dirichlet' or mode == 'riemannian')
         # NOTE: change +1 to +2 here, at the end of the line
-        inp_size = self.alphabet_size * (2 if expanded_simplex_input else 1) + 1 # plus one for signal input
+        inp_size = self.k * (2 if expanded_simplex_input else 1) + 1 # plus one for signal input
         if (mode == 'ardm' or mode == 'lrar'):
             inp_size += 1  # plus one for the mask token of these models
         self.linear = nn.Conv1d(inp_size, n, kernel_size=9, padding=4)
