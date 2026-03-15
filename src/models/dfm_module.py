@@ -671,9 +671,9 @@ class PromoterModule(GeneralModule):
 
 
         self.condflow = DirichletConditionalFlow(
-        K=self.model.alphabet_size, alpha_spacing=0.01, alpha_max=alpha_max)
+        K=self.model.k, alpha_spacing=0.01, alpha_max=alpha_max)
 
-        self.seifeatures = pd.read_csv('data/promoter_design/target.sei.names', sep='|', header=None)
+        self.seifeatures = pd.read_csv('data/promoter/target.sei.names', sep='|', header=None)
         self.sei_cache = {}
         self.loaded_distill_model = False
 
@@ -707,7 +707,7 @@ class PromoterModule(GeneralModule):
             #import pdb; pdb.set_trace()
             xt, alphas = sample_cond_prob_path(
                 mode=self.mode, fix_alpha=self.fix_alpha,
-                alpha_scale=self.alpha_scale, seq=seq, alphabet_size=self.model.alphabet_size) # [128, 1024, 4], [128]
+                alpha_scale=self.alpha_scale, seq=seq, alphabet_size=self.model.k) # [128, 1024, 4], [128]
             xt, prior_weights = expand_simplex(
                 xt, alphas, self.prior_pseudocount) # [128, 1024, 8]
             self.log('prior_weight', prior_weights.mean())
@@ -721,7 +721,7 @@ class PromoterModule(GeneralModule):
         elif self.mode == 'distill':
             if self.stage == 'val':
                 seq_distill = torch.zeros_like(seq, device=self.device)
-                xt = torch.ones((B,L, self.model.alphabet_size), device=self.device)
+                xt = torch.ones((B,L, self.model.k), device=self.device)
                 xt = xt / xt.sum(-1)[..., None]
             else:
                 logits_distill, xt = self.dirichlet_flow_inference(seq, signal, model=self.distill_model,
@@ -757,7 +757,7 @@ class PromoterModule(GeneralModule):
                 raise NotImplementedError()
             # TODO: add to log
             #self.log('seq', [''.join([['A','C','G','T'][num] for num in seq]) for seq in seq_pred])
-            seq_pred_one_hot = torch.nn.functional.one_hot(seq_pred, num_classes=self.model.alphabet_size).float()
+            seq_pred_one_hot = torch.nn.functional.one_hot(seq_pred, num_classes=self.model.k).float()
 
             if batch_idx not in self.sei_cache:
                 sei_profile = self.get_sei_profile(seq_one_hot)
@@ -786,7 +786,7 @@ class PromoterModule(GeneralModule):
     @torch.no_grad()
     def distill_inference(self, seq,signal):
         B, L = seq.shape
-        K = self.model.alphabet_size
+        K = self.model.k
         x0 = torch.distributions.Dirichlet(torch.ones(B, L, K, device=seq.device)).sample()
         logits = self.model(x0,signal, t=torch.zeros(B, device=self.device))
         return logits
@@ -794,7 +794,7 @@ class PromoterModule(GeneralModule):
     @torch.no_grad()
     def riemannian_flow_inference(self, seq, signal, batch_idx=None):
         B, L = seq.shape
-        K = self.model.alphabet_size
+        K = self.model.k
         xt = torch.distributions.Dirichlet(torch.ones(B, L, K)).sample().to(self.device)
         eye = torch.eye(K).to(self.device)
 
@@ -857,7 +857,7 @@ class PromoterModule(GeneralModule):
         print('Loading sei model')
         self.sei = NonStrandSpecific(Sei(4096, 21907))
         self.sei.load_state_dict(upgrade_state_dict(
-            torch.load('data/promoter_design/best.sei.model.pth.tar', map_location='cpu')['state_dict'],
+            torch.load('data/promoter/best.sei.model.pth.tar', map_location='cpu')['state_dict'],
             prefixes=['module.']))
         self.sei.to(self.device)
         self.generator = np.random.default_rng(seed=137)

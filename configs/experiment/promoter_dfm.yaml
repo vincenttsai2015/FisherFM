@@ -28,6 +28,8 @@ model:
   net: # TODO: not used remove
   model:
     mode: dirichlet
+    k: 4
+    dim: 500
     embed_dim: 256
     time_dependent_weights: null
     time_step: 0.01

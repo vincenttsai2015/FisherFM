@@ -849,15 +849,16 @@ class CNNModel(nn.Module):
         for i in range(self.num_layers):
             h = self.dropout(feat.clone())
             print(f"h shape before time add = {h.shape}")
-            # tmp = self.time_layers[i](time_emb)
-            print(f"time_emb shape = {time_emb.shape}")
+            # tmp = self.time_layers[i](time_emb)            
             # print(f"projected time shape = {tmp.shape}")
             # print(f"projected time unsqueezed = {tmp[:, :, None].shape}")
             if not self.clean_data:
+                print(f"time_emb shape = {time_emb.shape}")
                 time_feat = self.time_layers[i](time_emb).squeeze(1)
                 # h = h + self.time_layers[i](time_emb)[:, :, None]
                 h = h + time_feat[:, :, None]
             if self.cls_free_guidance and not self.classifier:
+                print(f"cls_emb shape = {cls_emb.shape}")
                 cls_feat = self.cls_layers[i](cls_emb).squeeze(1)
                 # h = h + self.cls_layers[i](cls_emb)[:, :, None]
                 h = h + cls_feat[:, :, None]
