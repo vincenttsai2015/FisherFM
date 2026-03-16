@@ -59,7 +59,7 @@ def ot_train_step(
     k = x_1.size(1)
     d = x_1.size(-1)
     t = torch.rand((b, 1), device=x_1.device)
-    check("x_1 at function entry", x_1)
+    # check("x_1 at function entry", x_1)
     x_0 = m.uniform_prior(b, k, d).to(x_1.device)
     return cft_loss_function(
         x_0, x_1, t, m, model, sampler, extra_args=extra_args, closed_form_drv=closed_form_drv,
