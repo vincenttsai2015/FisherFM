@@ -37,7 +37,7 @@ class Dense(nn.Module):
 class PromoterModel(nn.Module):
     """A time-dependent score-based model built upon U-Net architecture."""
 
-    def __init__(self, mode, k=4, dim=500, embed_dim=256, time_dependent_weights=None, time_step=0.01):
+    def __init__(self, mode, k=4, embed_dim=256, time_dependent_weights=None, time_step=0.01):
         """Initialize a time-dependent score-based network.
 
         Args:
@@ -49,7 +49,7 @@ class PromoterModel(nn.Module):
         super().__init__()
         # Gaussian random feature embedding layer for time
         self.k = k
-        self.dim = dim
+        # self.dim = dim
         self.embed = nn.Sequential(GaussianFourierProjection(embed_dim=embed_dim),
                                    nn.Linear(embed_dim, embed_dim))
         n = 256
@@ -109,8 +109,14 @@ class PromoterModel(nn.Module):
 
         # Encoding path
         # x: NLC -> NCL
+        print("x:", x.shape)
+        print("signal:", signal.shape if signal is not None else None)
+        print("t:", t.shape if t is not None else None)
+        print("x before transpose:", x.shape)
         out = x.permute(0, 2, 1)
-        out = self.act(self.linear(out))
+        print("out (x after transpose):", out.shape)
+        out = self.linear(out)
+        out = self.act(out)
 
         # pos encoding
         for block, dense, norm in zip(self.blocks, self.denses, self.norms):

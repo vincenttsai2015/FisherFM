@@ -41,6 +41,14 @@ def geodesic(manifold, start_point, end_point):
 
     return path
 
+def check(name, z):
+    print(
+        f"{name}: shape={tuple(z.shape)}, "
+        f"nan={torch.isnan(z).any().item()}, "
+        f"inf={torch.isinf(z).any().item()}, "
+        f"min={torch.nan_to_num(z).min().item()}, "
+        f"max={torch.nan_to_num(z).max().item()}"
+    )
 
 class SFMModule(LightningModule):
     """
@@ -124,8 +132,8 @@ class SFMModule(LightningModule):
         self.fbd_every = fbd_every
         if eval_fbd:
             self.fbd = FBD(
-                dim=4,
-                k=500,
+                dim=500,
+                k=4,
                 num_cls=47 if mel_or_dna else 81,
                 hidden=128,  # read config
                 depth=4 if mel_or_dna else 1,
@@ -179,7 +187,12 @@ class SFMModule(LightningModule):
         Perform a single model step on a batch of data.
         """
         # points are on the simplex
+        print("input x_1 nan:", torch.isnan(x_1).any().item())
+        print("input x_1 inf:", torch.isinf(x_1).any().item())
+        
         x_1 = self.manifold.project(x_1)
+        check("x_1 after projection", x_1)
+
         return ot_train_step(
             self.manifold.smooth_labels(x_1, mx=self.smoothing) if self.smoothing else x_1,
             self.manifold,
@@ -205,6 +218,7 @@ class SFMModule(LightningModule):
                     x_t, u_t = jvp(path, (t,), (torch.ones_like(t).to(t),))
                     return x_t, u_t
                 x_t, target = vmap(cond_u)(x_0, x_1, time)
+                check("x_t after vmap", x_t)
             x_t = x_t.squeeze()
             target = target.squeeze()
             if x_0.size(0) == 1:
@@ -236,7 +250,6 @@ class SFMModule(LightningModule):
             print(f'x_1.shape: {x_1.shape}')
             print(f'x_1.dtype: {x_1.dtype}')
             print(f'self.net.model.k: {self.net.model.k}')
-            print(f'self.net.model.dim: {self.net.model.dim}')
             if x_1.dtype == torch.long:
                 x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
             print(f'x_1 shape: {x_1.shape}')
@@ -248,8 +261,13 @@ class SFMModule(LightningModule):
                 loss = self.model_step(x_1, {"signal": signal})
             else:
                 loss = self.model_step(x_1, {"cls": signal})
+            
+            check("x_1 after model_step", x_1)
+        
         else:
             loss = self.model_step(x_1)
+            check("x_1 after model_step", x_1)
+
 
         # update and log metrics
         self.train_loss(loss)

@@ -35,6 +35,6 @@ logger:
   wandb:
     tags: ${tags}
     group: "promoter_design"
-    name: promoter_design_sfm_bmlp_B${data.batch_size}
+    name: promoter_design_sfm_cnn_B${data.batch_size}
   aim:
     experiment: "promoter_design"

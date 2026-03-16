@@ -598,9 +598,11 @@ class GeneralModule(pl.LightningModule):
             for metric_name, metric in mean_log.items():
                 self.log(f'{metric_name}', metric)
 
-            path = os.path.join(
-                self.model_dir, f"val_{self.trainer.global_step}.csv"
-            )
+            from pathlib import Path
+            path = Path(self.model_dir)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            # os.makedirs(os.path.dirname(self.model_dir), exist_ok=True)
+            path = os.path.join(self.model_dir, f"val_{self.trainer.global_step}.csv")
             pd.DataFrame(log).to_csv(path)
 
         for key in list(log.keys()):
@@ -670,8 +672,7 @@ class PromoterModule(GeneralModule):
             self.model = model
 
 
-        self.condflow = DirichletConditionalFlow(
-        K=self.model.k, alpha_spacing=0.01, alpha_max=alpha_max)
+        self.condflow = DirichletConditionalFlow(K=self.model.k, alpha_spacing=0.01, alpha_max=alpha_max)
 
         self.seifeatures = pd.read_csv('data/promoter/target.sei.names', sep='|', header=None)
         self.sei_cache = {}
@@ -697,9 +698,15 @@ class PromoterModule(GeneralModule):
 
     def general_step(self, batch, batch_idx=None):
         self.iter_step += 1
-        seq_one_hot = batch[:, :, :4]
+        print(f'len(batch): {len(batch)}, batch[0].shape: {batch[0].shape}, batch[1].shape: {batch[1].shape if len(batch) > 1 else None}')
+        seq_one_hot = batch[0] if len(batch) > 1 else batch[:, :, :4]
+        print(f'seq_one_hot shape: {seq_one_hot.shape}')
+        # seq_one_hot = batch[:, :, :4]
         seq = torch.argmax(seq_one_hot, dim=-1)
-        signal = batch[:, :, 4:5] # [128, 1024, 1]
+        print(f'seq shape: {seq.shape}')
+        signal = batch[1][:, :, 0:1] if len(batch) > 1 else batch[:, :, 4:5]
+        print(f'signal shape: {signal.shape}')
+        # signal = batch[:, :, 4:5] # [128, 1024, 1]
         
         B, L = seq.shape
 
@@ -728,7 +735,10 @@ class PromoterModule(GeneralModule):
                     alpha_max=self.alpha_max, prior_pseudocount=self.prior_pseudocount, flow_temp=self.flow_temp)
                 seq_distill = torch.argmax(logits_distill, dim=-1)
             alphas = torch.zeros(B, device=self.device)
-
+        
+        print(f'xt shape: {xt.shape}, alphas shape: {alphas.shape}')
+        print(f'signal shape: {signal.shape}')
+        print(f'alphas shape: {alphas.shape}')
         logits = self.model(xt, signal=signal, t=alphas)
 
         losses = torch.nn.functional.cross_entropy(logits.transpose(1, 2), seq_distill if self.mode == 'distill' else seq, reduction='none')
@@ -812,8 +822,8 @@ class PromoterModule(GeneralModule):
     @torch.no_grad()
     def dirichlet_flow_inference(self, seq, signal, model, alpha_max, prior_pseudocount, flow_temp):
         B, L = seq.shape
-        x0 = torch.distributions.Dirichlet(torch.ones(B, L, model.alphabet_size, device=seq.device)).sample()
-        eye = torch.eye(model.alphabet_size).to(x0)
+        x0 = torch.distributions.Dirichlet(torch.ones(B, L, model.k, device=seq.device)).sample()
+        eye = torch.eye(model.k).to(x0)
         xt = x0
 
         t_span = torch.linspace(1, alpha_max, self.num_integration_steps, device=self.device)
@@ -898,7 +908,7 @@ class PromoterModule(GeneralModule):
             self.log_dict(mean_log, batch_size=1)
             for metric_name, metric in mean_log.items():
                 self.log(metric_name, metric)
-
+            
             path = os.path.join(self.model_dir, f"val_{self.trainer.global_step}.csv")
             pd.DataFrame(log).to_csv(path)
 

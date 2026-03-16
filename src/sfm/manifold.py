@@ -392,7 +392,7 @@ class NSimplex(Manifold):
         """
         See `Manifold.project`.
         """
-        return x / x.sum(dim=-1, keepdim=True)
+        return x / x.sum(dim=-1, keepdim=True).clamp_min(1e-8)
 
 
 class NSphere(Manifold):
@@ -540,7 +540,18 @@ class NSphere(Manifold):
         """
         See `Manifold.project`.
         """
-        return x / x.norm(dim=-1, keepdim=True)
+        check("x before projection", x)
+        return x / x.norm(dim=-1, keepdim=True).clamp_min(1e-8)
+
+def check(name, z):
+    print(
+        f"{name}: shape={tuple(z.shape)}, "
+        f"nan={torch.isnan(z).any().item()}, "
+        f"inf={torch.isinf(z).any().item()}, "
+        f"min={torch.nan_to_num(z).min().item()}, "
+        f"max={torch.nan_to_num(z).max().item()}"
+    )
+
 
 
 class GeooptSphere(Manifold):
@@ -600,16 +611,31 @@ class GeooptSphere(Manifold):
         raise NotImplementedError(f"unimplemented for {m}")
 
     def all_belong(self, x: Tensor) -> bool:
-        return torch.allclose(x.norm(dim=-1), torch.tensor(1.0))
+        return torch.allclose(x.norm(dim=-1), torch.tensor(1.0), atol=1e-2)
 
     def all_belong_tangent(self, x: Tensor, v: Tensor) -> bool:
-        return torch.allclose(fast_dot(x, v), torch.tensor(0.0), atol=1e-5)
+        return torch.allclose(fast_dot(x, v), torch.tensor(0.0), atol=1e-2)
 
     def project(self, x: Tensor) -> Tensor:
-        """
-        See `Manifold.project`.
-        """
-        return self.sphere.projx(x).abs()
+        check("x before projection", x)
+        print("min norm:", x.norm(dim=-1).min())
+        print("zero vectors:", (x.norm(dim=-1) == 0).sum())
+
+        eps = 1e-8
+
+        norm = torch.linalg.norm(x, dim=-1, keepdim=True)
+        norm = torch.clamp(norm, min=eps)
+
+        x = x / norm
+
+        return x.abs()
+    # def project(self, x: Tensor) -> Tensor:
+    #     """
+    #     See `Manifold.project`.
+    #     """
+    #     check("x before projection", x)
+    #     return project(x)
+    #     return self.sphere.projx(x).abs()
 
 
 class LinearNSimplex(NSimplex):

@@ -1278,3 +1278,8 @@ class PromoterDataset(torch.utils.data.Dataset):
 
     def reset(self):
         np.random.seed(0)
+
+if __name__ == "__main__":
+    dataset = PromoterDataset(sep_x_y=True)
+    for i in range(10):
+        print(dataset[i][0].shape, dataset[i][1].shape)
