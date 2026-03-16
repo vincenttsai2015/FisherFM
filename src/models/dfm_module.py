@@ -123,7 +123,7 @@ class DNAModule(pl.LightningModule):
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
 
     def test_step(self, batch: torch.Tensor, batch_idx: int):
-        self.stage = 'val'
+        self.stage = 'test'
         loss = self.general_step(batch, batch_idx)
         self.test_loss(loss)
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -537,7 +537,6 @@ class GeneralModule(pl.LightningModule):
 
 
     def try_print_log(self):
-
         step = self.iter_step if self.validate else self.trainer.global_step
         if (step + 1) % self.print_freq == 0:
             print(self.model_dir)
@@ -598,18 +597,34 @@ class GeneralModule(pl.LightningModule):
             for metric_name, metric in mean_log.items():
                 self.log(f'{metric_name}', metric)
 
-            # from pathlib import Path
-            # path = Path(self.model_dir)
-            # path.parent.mkdir(parents=True, exist_ok=True)
-            # os.makedirs(os.path.dirname(self.model_dir), exist_ok=True)
             path = os.path.join(self.model_dir, f"val_{self.trainer.global_step}.csv")
             pd.DataFrame(log).to_csv(path)
 
         for key in list(log.keys()):
             if "val_" in key:
                 del self._log[key]
+    
+    def on_test_epoch_end(self):
+        self.generator = np.random.default_rng()
+        log = self._log
+        log = {key: log[key] for key in log if "test_" in key}
+        log = self.gather_log(log, self.trainer.world_size)
+        mean_log = self.get_log_mean(log)
+        mean_log.update(
+            {'epoch': float(self.trainer.current_epoch), 'step': float(self.trainer.global_step), 'iter_step': float(self.iter_step)})
 
+        if self.trainer.is_global_zero:
+            print(str(mean_log))
+            self.log_dict(mean_log, batch_size=1)
+            for metric_name, metric in mean_log.items():
+                self.log(f'{metric_name}', metric)
 
+            path = os.path.join(self.model_dir, f"test_{self.trainer.global_step}.csv")
+            pd.DataFrame(log).to_csv(path)
+
+        for key in list(log.keys()):
+            if "test_" in key:
+                del self._log[key]
 
     def gather_log(self, log, world_size):
         if world_size == 1:
@@ -695,6 +710,10 @@ class PromoterModule(GeneralModule):
         loss = self.general_step(batch, batch_idx)
         if self.validate:
             self.try_print_log()
+    
+    def test_step(self, batch, batch_idx):
+        self.stage = 'test'
+        loss = self.general_step(batch, batch_idx)
 
     def general_step(self, batch, batch_idx=None):
         self.iter_step += 1
@@ -747,10 +766,9 @@ class PromoterModule(GeneralModule):
         # TODO: remove .mean() from log
         self.log('alpha', alphas.mean())
         self.log(f"{self.stage}/loss", losses.mean())
-        self.log('perplexity', torch.exp(losses.mean())[None].expand(B).mean())
-        self.log('dur', torch.tensor(time.time() - self.last_log_time)[None].expand(B).mean())
-        if self.stage == "val":
-
+        self.log(f"{self.stage}/perplexity", torch.exp(losses.mean())[None].expand(B).mean())
+        self.log(f"{self.stage}/dur", torch.tensor(time.time() - self.last_log_time)[None].expand(B).mean())
+        if self.stage == "val" or self.stage == "test":
             if self.mode == 'dirichlet':
                 logits_pred, _ = self.dirichlet_flow_inference(seq, signal, self.model,
                     alpha_max=self.alpha_max, prior_pseudocount=self.prior_pseudocount, flow_temp=self.flow_temp)
@@ -777,8 +795,8 @@ class PromoterModule(GeneralModule):
 
             sei_profile_pred = self.get_sei_profile(seq_pred_one_hot)
             # TODO: remove .mean() from log
-            self.log('sp-mse', ((sei_profile - sei_profile_pred) ** 2).mean())
-            self.log('recovery', seq_pred.eq(seq).float().mean(-1).mean())
+            self.log(f"{self.stage}/sp-mse", ((sei_profile - sei_profile_pred) ** 2).mean())
+            self.log(f"{self.stage}/recovery", seq_pred.eq(seq).float().mean(-1).mean())
 
         self.last_log_time = time.time()
         return losses.mean()
@@ -871,6 +889,16 @@ class PromoterModule(GeneralModule):
             prefixes=['module.']))
         self.sei.to(self.device)
         self.generator = np.random.default_rng(seed=137)
+    
+    @torch.no_grad()
+    def on_test_epoch_start(self) -> None:
+        print('Loading sei model')
+        self.sei = NonStrandSpecific(Sei(4096, 21907))
+        self.sei.load_state_dict(upgrade_state_dict(
+            torch.load('data/promoter/best.sei.model.pth.tar', map_location='cpu')['state_dict'],
+            prefixes=['module.']))
+        self.sei.to(self.device)
+        self.generator = np.random.default_rng(seed=137)
 
     def load_distill_model(self):
         with open(self.distill_ckpt_hparams) as f:
@@ -914,6 +942,29 @@ class PromoterModule(GeneralModule):
 
         for key in list(log.keys()):
             if "val_" in key:
+                del self._log[key]
+    
+    def on_test_epoch_end(self):
+        del self.sei
+        torch.cuda.empty_cache()
+        self.generator = np.random.default_rng()
+        log = self._log
+        log = {key: log[key] for key in log if "test_" in key}
+        log = self.gather_log(log, self.trainer.world_size)
+        mean_log = self.get_log_mean(log)
+        mean_log.update({'epoch': self.trainer.current_epoch, 'step': self.trainer.global_step, 'iter_step': self.iter_step})
+
+        if self.trainer.is_global_zero:
+            print(str(mean_log))
+            self.log_dict(mean_log, batch_size=1)
+            for metric_name, metric in mean_log.items():
+                self.log(metric_name, metric)
+            
+            path = os.path.join(self.model_dir, f"test_{self.trainer.global_step}.csv")
+            pd.DataFrame(log).to_csv(path)
+
+        for key in list(log.keys()):
+            if "test_" in key:
                 del self._log[key]
 
     # def lg(self, key, data):
