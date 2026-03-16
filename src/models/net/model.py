@@ -757,8 +757,8 @@ class MLPModel(nn.Module):
 
 
     def forward(self, x, t, cls=None):
-        print("x shape before embed:", x.shape)
-        print("embedder weight:", self.embedder.weight.shape)
+        # print("x shape before embed:", x.shape)
+        # print("embedder weight:", self.embedder.weight.shape)
         time_embed = self.time_embedder(t)
         feat = self.embedder(x)
         feat = feat + time_embed[:,None,:]
@@ -806,7 +806,7 @@ class CNNModel(nn.Module):
         else:
             expanded_simplex_input = self.cls_expanded_simplex or not classifier and (self.mode == 'dirichlet' or self.mode == 'riemannian')
             inp_size = self.k * (2 if expanded_simplex_input else 1)
-            print("input size is %d" % (inp_size))
+            # print("input size is %d" % (inp_size))
             if (self.mode == 'ardm' or self.mode == 'lrar') and not classifier:
                 inp_size += 1 # plus one for the mask token of these models
             self.linear = nn.Conv1d(inp_size, self.hidden, kernel_size=9, padding=4)
@@ -834,7 +834,7 @@ class CNNModel(nn.Module):
             self.cls_layers = nn.ModuleList([Dense(self.hidden, self.hidden) for _ in range(self.num_layers)])
 
     def forward(self, x, t: Tensor, cls = None, return_embedding=False):
-        print(f"input x shape = {x.shape}")
+        # print(f"input x shape = {x.shape}")
         if self.clean_data:
             feat = self.linear(x)
             feat = feat.permute(0, 2, 1)
@@ -848,17 +848,17 @@ class CNNModel(nn.Module):
 
         for i in range(self.num_layers):
             h = self.dropout(feat.clone())
-            print(f"h shape before time add = {h.shape}")
+            # print(f"h shape before time add = {h.shape}")
             # tmp = self.time_layers[i](time_emb)            
             # print(f"projected time shape = {tmp.shape}")
             # print(f"projected time unsqueezed = {tmp[:, :, None].shape}")
             if not self.clean_data:
-                print(f"time_emb shape = {time_emb.shape}")
+                # print(f"time_emb shape = {time_emb.shape}")
                 time_feat = self.time_layers[i](time_emb).squeeze(1)
                 # h = h + self.time_layers[i](time_emb)[:, :, None]
                 h = h + time_feat[:, :, None]
             if self.cls_free_guidance and not self.classifier:
-                print(f"cls_emb shape = {cls_emb.shape}")
+                # print(f"cls_emb shape = {cls_emb.shape}")
                 cls_feat = self.cls_layers[i](cls_emb).squeeze(1)
                 # h = h + self.cls_layers[i](cls_emb)[:, :, None]
                 h = h + cls_feat[:, :, None]

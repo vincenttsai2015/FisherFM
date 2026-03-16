@@ -109,12 +109,12 @@ class PromoterModel(nn.Module):
 
         # Encoding path
         # x: NLC -> NCL
-        print("x:", x.shape)
-        print("signal:", signal.shape if signal is not None else None)
-        print("t:", t.shape if t is not None else None)
-        print("x before transpose:", x.shape)
+        # print("x:", x.shape)
+        # print("signal:", signal.shape if signal is not None else None)
+        # print("t:", t.shape if t is not None else None)
+        # print("x before transpose:", x.shape)
         out = x.permute(0, 2, 1)
-        print("out (x after transpose):", out.shape)
+        # print("out (x after transpose):", out.shape)
         out = self.linear(out)
         out = self.act(out)
 
