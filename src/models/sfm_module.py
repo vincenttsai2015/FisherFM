@@ -187,11 +187,11 @@ class SFMModule(LightningModule):
         Perform a single model step on a batch of data.
         """
         # points are on the simplex
-        print("input x_1 nan:", torch.isnan(x_1).any().item())
-        print("input x_1 inf:", torch.isinf(x_1).any().item())
+        # print("input x_1 nan:", torch.isnan(x_1).any().item())
+        # print("input x_1 inf:", torch.isinf(x_1).any().item())
         
         x_1 = self.manifold.project(x_1)
-        check("x_1 after projection", x_1)
+        # check("x_1 after projection", x_1)
 
         return ot_train_step(
             self.manifold.smooth_labels(x_1, mx=self.smoothing) if self.smoothing else x_1,
@@ -218,7 +218,7 @@ class SFMModule(LightningModule):
                     x_t, u_t = jvp(path, (t,), (torch.ones_like(t).to(t),))
                     return x_t, u_t
                 x_t, target = vmap(cond_u)(x_0, x_1, time)
-                check("x_t after vmap", x_t)
+                # check("x_t after vmap", x_t)
             x_t = x_t.squeeze()
             target = target.squeeze()
             if x_0.size(0) == 1:
@@ -247,12 +247,12 @@ class SFMModule(LightningModule):
         signal = None
         if isinstance(x_1, list):
             x_1, signal = x_1
-            print(f'x_1.shape: {x_1.shape}')
-            print(f'x_1.dtype: {x_1.dtype}')
-            print(f'self.net.model.k: {self.net.model.k}')
+            # print(f'x_1.shape: {x_1.shape}')
+            # print(f'x_1.dtype: {x_1.dtype}')
+            # print(f'self.net.model.k: {self.net.model.k}')
             if x_1.dtype == torch.long:
                 x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
-            print(f'x_1 shape: {x_1.shape}')
+            # print(f'x_1 shape: {x_1.shape}')
             # x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.hparams.data.k).float()
             
             # Only one of the two signal inputs is used (the first one)
@@ -262,11 +262,11 @@ class SFMModule(LightningModule):
             else:
                 loss = self.model_step(x_1, {"cls": signal})
             
-            check("x_1 after model_step", x_1)
+            # check("x_1 after model_step", x_1)
         
         else:
             loss = self.model_step(x_1)
-            check("x_1 after model_step", x_1)
+            # check("x_1 after model_step", x_1)
 
 
         # update and log metrics
@@ -291,7 +291,7 @@ class SFMModule(LightningModule):
             x_1, signal = x_1
             if x_1.dtype == torch.long:
                 x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
-            print("x_1 shape:", x_1.shape)
+            # print("x_1 shape:", x_1.shape)
             
             # Only one of the two signal inputs is used (the first one)
             if len(signal.shape) == 3:
@@ -329,7 +329,7 @@ class SFMModule(LightningModule):
         if self.kl_eval:
             # evaluate KL
             real_probs = self.trainer.val_dataloaders.dataset.probs.to(self.device)
-            print(f'real_probs.shape: {real_probs.shape}')
+            # print(f'real_probs.shape: {real_probs.shape}')
             kl = estimate_categorical_kl(
                 self.net,
                 self.manifold,
@@ -354,7 +354,7 @@ class SFMModule(LightningModule):
             x_1, signal = x_1
             if x_1.dtype == torch.long:
                 x_1 = torch.nn.functional.one_hot(x_1, num_classes=self.net.model.k).float()  # for SFM, input is one-hot encoded, so we need to convert it to float
-            print("x_1 shape:", x_1.shape)
+            # print("x_1 shape:", x_1.shape)
             # Only one of the two signal inputs is used (the first one)
             if len(signal.shape) == 3:
                 signal = signal[:, :, 0].unsqueeze(-1)
@@ -383,7 +383,7 @@ class SFMModule(LightningModule):
                 net, x_1, self.manifold.sphere, normalize_loglikelihood=self.normalize_loglikelihood,
                 num_steps=self.inference_steps,
             ).mean()
-            print(ppl)
+            print(f'ppl: {ppl}')
             self.test_ppl(ppl)
             self.log("test/ppl", self.test_ppl, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
 

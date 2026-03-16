@@ -717,14 +717,14 @@ class PromoterModule(GeneralModule):
 
     def general_step(self, batch, batch_idx=None):
         self.iter_step += 1
-        print(f'len(batch): {len(batch)}, batch[0].shape: {batch[0].shape}, batch[1].shape: {batch[1].shape if len(batch) > 1 else None}')
+        # print(f'len(batch): {len(batch)}, batch[0].shape: {batch[0].shape}, batch[1].shape: {batch[1].shape if len(batch) > 1 else None}')
         seq_one_hot = batch[0] if len(batch) > 1 else batch[:, :, :4]
-        print(f'seq_one_hot shape: {seq_one_hot.shape}')
+        # print(f'seq_one_hot shape: {seq_one_hot.shape}')
         # seq_one_hot = batch[:, :, :4]
         seq = torch.argmax(seq_one_hot, dim=-1)
-        print(f'seq shape: {seq.shape}')
+        # print(f'seq shape: {seq.shape}')
         signal = batch[1][:, :, 0:1] if len(batch) > 1 else batch[:, :, 4:5]
-        print(f'signal shape: {signal.shape}')
+        # print(f'signal shape: {signal.shape}')
         # signal = batch[:, :, 4:5] # [128, 1024, 1]
         
         B, L = seq.shape
@@ -755,9 +755,9 @@ class PromoterModule(GeneralModule):
                 seq_distill = torch.argmax(logits_distill, dim=-1)
             alphas = torch.zeros(B, device=self.device)
         
-        print(f'xt shape: {xt.shape}, alphas shape: {alphas.shape}')
-        print(f'signal shape: {signal.shape}')
-        print(f'alphas shape: {alphas.shape}')
+        # print(f'xt shape: {xt.shape}, alphas shape: {alphas.shape}')
+        # print(f'signal shape: {signal.shape}')
+        # print(f'alphas shape: {alphas.shape}')
         logits = self.model(xt, signal=signal, t=alphas)
 
         losses = torch.nn.functional.cross_entropy(logits.transpose(1, 2), seq_distill if self.mode == 'distill' else seq, reduction='none')

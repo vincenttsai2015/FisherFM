@@ -126,18 +126,18 @@ class Manifold(ABC):
 
         dt = torch.tensor(1.0 / steps, device=x_0.device)
         x = x_0
-        print(f'x_0 shape: {x_0.shape}')
+        # print(f'x_0 shape: {x_0.shape}')
         t = torch.zeros((x.size(0),), device=x_0.device, dtype=x_0.dtype)
-        print(f'initial t shape: {t.shape}')
+        # print(f'initial t shape: {t.shape}')
         for _ in range(steps):
             if tangent:
                 x = self.exp_map(x, model(x=x, t=t) * dt)
             else:
                 x = x + model(x=x, t=t) * dt
-            print(f'x shape: {x.shape}')
+            # print(f'x shape: {x.shape}')
             x = self.project(x)
             t += dt
-            print(f't shape: {t.shape}')
+            # print(f't shape: {t.shape}')
         return x
 
     @torch.no_grad()
@@ -540,7 +540,7 @@ class NSphere(Manifold):
         """
         See `Manifold.project`.
         """
-        check("x before projection", x)
+        # check("x before projection", x)
         return x / x.norm(dim=-1, keepdim=True).clamp_min(1e-8)
 
 def check(name, z):
@@ -617,17 +617,13 @@ class GeooptSphere(Manifold):
         return torch.allclose(fast_dot(x, v), torch.tensor(0.0), atol=1e-2)
 
     def project(self, x: Tensor) -> Tensor:
-        check("x before projection", x)
-        print("min norm:", x.norm(dim=-1).min())
-        print("zero vectors:", (x.norm(dim=-1) == 0).sum())
-
+        # check("x before projection", x)
+        # print("min norm:", x.norm(dim=-1).min())
+        # print("zero vectors:", (x.norm(dim=-1) == 0).sum())
         eps = 1e-8
-
         norm = torch.linalg.norm(x, dim=-1, keepdim=True)
         norm = torch.clamp(norm, min=eps)
-
         x = x / norm
-
         return x.abs()
     # def project(self, x: Tensor) -> Tensor:
     #     """
