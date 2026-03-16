@@ -18,7 +18,7 @@ scheduler:
 net:
   _target_: src.models.net.promoter_model.PromoterModel
   mode: dirichlet
-  embed_dim: 256
+  embed_dim: 128
   time_step: 0.01
 
 compile: false

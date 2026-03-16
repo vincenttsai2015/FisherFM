@@ -598,9 +598,9 @@ class GeneralModule(pl.LightningModule):
             for metric_name, metric in mean_log.items():
                 self.log(f'{metric_name}', metric)
 
-            from pathlib import Path
-            path = Path(self.model_dir)
-            path.parent.mkdir(parents=True, exist_ok=True)
+            # from pathlib import Path
+            # path = Path(self.model_dir)
+            # path.parent.mkdir(parents=True, exist_ok=True)
             # os.makedirs(os.path.dirname(self.model_dir), exist_ok=True)
             path = os.path.join(self.model_dir, f"val_{self.trainer.global_step}.csv")
             pd.DataFrame(log).to_csv(path)
@@ -746,7 +746,7 @@ class PromoterModule(GeneralModule):
 
         # TODO: remove .mean() from log
         self.log('alpha', alphas.mean())
-        self.log('loss', losses.mean())
+        self.log(f"{self.stage}/loss", losses.mean())
         self.log('perplexity', torch.exp(losses.mean())[None].expand(B).mean())
         self.log('dur', torch.tensor(time.time() - self.last_log_time)[None].expand(B).mean())
         if self.stage == "val":
