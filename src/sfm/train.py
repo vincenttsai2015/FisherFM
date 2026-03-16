@@ -111,45 +111,45 @@ def cft_loss_function(
         # target = m.log_map(x_t, x_1) / (1.0 - t.unsqueeze(-1) + 1e-7)
     else:
         with torch.inference_mode(False):
-            check_tensor("before sample x_0", x_0)
-            check_tensor("before sample x_1", x_1)
-            check_tensor("before sample t", t)
+            # check_tensor("before sample x_0", x_0)
+            # check_tensor("before sample x_1", x_1)
+            # check_tensor("before sample t", t)
             # https://github.com/facebookresearch/riemannian-fm/blob/main/manifm/model_pl.py
             def cond_u(x0, x1, t):
                 path = geodesic(m.sphere, x0, x1)
-                print("path(t).shape:", path(t).shape)
-                print("t.shape:", t.shape)
+                # print("path(t).shape:", path(t).shape)
+                # print("t.shape:", t.shape)
                 x_t, u_t = jvp(path, (t,), (torch.ones_like(t).to(t),))
                 return x_t, u_t
             x_t, target = vmap(cond_u)(x_0, x_1, t)
-            check("x_t after vmap", x_t)
+            # check("x_t after vmap", x_t)
             # check_tensor("after sample x_t", x_t)
         x_t = x_t.squeeze()
         target = target.squeeze()
-        print("x_t.shape:", x_t.shape)
-        print("target.shape:", target.shape)
+        # print("x_t.shape:", x_t.shape)
+        # print("target.shape:", target.shape)
 
         # 檢查 x_t 是否在 manifold 上
-        try:
-            print("all_belong(x_t):", m.all_belong(x_t))
-        except Exception as e:
-            print("all_belong(x_t) failed:", e)
+        # try:
+        #     print("all_belong(x_t):", m.all_belong(x_t))
+        # except Exception as e:
+        #     print("all_belong(x_t) failed:", e)
 
         # 檢查 tangent 條件
-        try:
-            print("all_belong_tangent(x_t, target):", m.all_belong_tangent(x_t, target))
-        except Exception as e:
-            print("all_belong_tangent failed:", e)
+        # try:
+        #     print("all_belong_tangent(x_t, target):", m.all_belong_tangent(x_t, target))
+        # except Exception as e:
+        #     print("all_belong_tangent failed:", e)
 
         # 如果 sphere 用內積判斷 tangent，直接算正交性
         dot = (x_t * target).sum(dim=-1)
-        print("dot mean abs:", dot.abs().mean().item())
-        print("dot max abs:", dot.abs().max().item())
+        # print("dot mean abs:", dot.abs().mean().item())
+        # print("dot max abs:", dot.abs().max().item())
 
         # 檢查 sphere norm
         x_norm = x_t.norm(dim=-1)
-        print("x_t norm mean:", x_norm.mean().item())
-        print("x_t norm min/max:", x_norm.min().item(), x_norm.max().item())
+        # print("x_t norm mean:", x_norm.mean().item())
+        # print("x_t norm min/max:", x_norm.min().item(), x_norm.max().item())
         target = m.make_tangent(x_t, target)
         # assert m.all_belong_tangent(x_t, target)
 

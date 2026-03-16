@@ -78,8 +78,8 @@ def estimate_categorical_kl(
         the real distribution, i.e., "KL(model || real_dist)".
     """
     assert sampling_mode in ["sample", "max"], "not a valid sampling mode"
-    print("real_dist initial shape:", real_dist.shape)
-    print("real_dist initial min/max:", real_dist.min().item(), real_dist.max().item())
+    # print("real_dist initial shape:", real_dist.shape)
+    # print("real_dist initial min/max:", real_dist.min().item(), real_dist.max().item())
     # init acc
     acc = torch.zeros_like(real_dist, device=real_dist.device).int()
 
@@ -88,32 +88,32 @@ def estimate_categorical_kl(
     if n % batch != 0:
         to_sample += [n % batch]
     for draw in (tqdm.tqdm(to_sample) if not silent else to_sample):
-        print(f'real_dist shape: {real_dist.shape}')
+        # print(f'real_dist shape: {real_dist.shape}')
         x_0 = manifold.uniform_prior(draw, real_dist.size(1), real_dist.size(2)).to(real_dist.device)
-        print(f'x_0.shape: {x_0.shape}')
+        # print(f'x_0.shape: {x_0.shape}')
         x_1 = manifold.tangent_euler(x_0, model, inference_steps, tangent=tangent)
-        print(f'x_1.shape: {x_1.shape}')
+        # print(f'x_1.shape: {x_1.shape}')
         x_1 = manifold.send_to(x_1, NSimplex)
-        print(f'x_1.shape after mapping: {x_1.shape}')
+        # print(f'x_1.shape after mapping: {x_1.shape}')
         if sampling_mode == "sample": # TODO: remove or fix for Categorical
             # raise NotImplementedError("Sampling from Dirichlet not implemented")
             dist = torch.distributions.Dirichlet(x_1)
             samples = dist.sample()
-            print(f'samples shape: {samples.shape}')
+            # print(f'samples shape: {samples.shape}')
             acc += samples.sum(dim=0)
         else:
             samples = nn.functional.one_hot(x_1.argmax(dim=-1), real_dist.size(-1))
-            print(f'samples shape: {samples.shape}')
+            # print(f'samples shape: {samples.shape}')
             acc += samples.sum(dim=0)
     acc = acc.float()
     acc /= n
     
-    print("acc shape after normalization:", acc.shape)
-    print("acc min/max:", acc.min().item(), acc.max().item())
-    print("acc zeros:", (acc == 0).sum().item())
-    print("real_dist zeros:", (real_dist == 0).sum().item())
-    print("acc row sums first 10:", acc.sum(dim=-1)[:10])
-    print("real_dist row sums first 10:", real_dist.sum(dim=-1)[:10])
+    # print("acc shape after normalization:", acc.shape)
+    # print("acc min/max:", acc.min().item(), acc.max().item())
+    # print("acc zeros:", (acc == 0).sum().item())
+    # print("real_dist zeros:", (real_dist == 0).sum().item())
+    # print("acc row sums first 10:", acc.sum(dim=-1)[:10])
+    # print("real_dist row sums first 10:", real_dist.sum(dim=-1)[:10])
 
     eps = 1e-8
     acc = acc.clamp_min(eps)
