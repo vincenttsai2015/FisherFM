@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: enhancer
-  - override /model: toy_cnn_sfm
+  - override /model: mel_cnn_sfm
   - override /callbacks: default
   - override /trainer: default
 
@@ -39,7 +39,7 @@ model:
   normalize_loglikelihood: true
   eval_fbd: true
   mel_or_dna: true  # MEL
-  fbd_classifier_path: "workdir/clsMELclean_cnn_dropout02_2023-12-31_12-26-28/epoch=9-step=5540.ckpt"
+  # fbd_classifier_path: None # "workdir/clsMELclean_cnn_dropout02_2023-12-31_12-26-28/epoch=9-step=5540.ckpt"
   inference_steps: 100
 
 data:

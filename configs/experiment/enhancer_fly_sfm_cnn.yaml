@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: enhancer
-  - override /model: toy_cnn_sfm
+  - override /model: fly_cnn_sfm
   - override /callbacks: default
   - override /trainer: default
 
@@ -37,8 +37,8 @@ model:
   fbd_every: 20
   eval_fbd: true
   eval_ppl: false
-  mel_or_dna: false  # DNA
-  fbd_classifier_path: "workdir/clsDNAclean_cnn_1stack_2023-12-30_15-01-30/epoch=15-step=10480.ckpt"
+  mel_or_dna: false  # Fly Brain DNA
+  # fbd_classifier_path: None # "workdir/clsDNAclean_cnn_1stack_2023-12-30_15-01-30/epoch=15-step=10480.ckpt"
   inference_steps: 100
 
 data:
