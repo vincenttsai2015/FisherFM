@@ -21,6 +21,10 @@ class BinaryMNIST(Dataset):
         self.flatten = flatten
         self.num_cls = num_cls
         self.k = k
+        print(f'self.base_dataset.data shape: {self.base_dataset.data.shape}')
+        reshaped_data = self.base_dataset.data.view(-1, 28*28).float()
+        self.probs = torch.stack([(reshaped_data > 0.5).float(), 1.0 - (reshaped_data > 0.5).float()], dim=1).contiguous().transpose(1, 2) # (N, 2, 784) -> (N, 784, 2)
+        print(f'self.probs shape: {self.probs.shape}')
 
     def __len__(self):
         return len(self.indices)
