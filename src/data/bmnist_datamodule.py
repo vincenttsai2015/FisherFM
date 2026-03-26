@@ -12,13 +12,13 @@ from lightning import LightningDataModule
 @register_dataset('bmnist')
 class BinaryMNIST(Dataset):
     def __init__(self, root, split, indices=None, download=True, flatten=True, k=2, num_cls=10):
+        self.base_dataset = datasets.MNIST(root=root, train=(split == 'train' or split == 'valid'), download=download)
         self.indices = indices if indices is not None else list(range(len(self.base_dataset)))
         self.transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Lambda(lambda x: (x > 0.5).float())
         ])
         self.flatten = flatten
-        self.base_dataset = datasets.MNIST(root=root, train=(split == 'train' or split == 'valid'), download=download)
         self.num_cls = num_cls
         self.k = k
 
@@ -97,21 +97,29 @@ class BinaryMNISTDataModule(LightningDataModule):
 
         # load datasets only if not loaded already
         if not self.data_train and not self.data_val and not self.data_test:
+            train_indices = list(range(50000))
             self.data_train = BinaryMNIST(
                 root=self.hparams.data_dir,
-                split=self.hparams.train_split,                
+                split=self.hparams.train_split,
+                indices=train_indices,
                 flatten=True,
                 k=self.k,
             )
+            
+            val_indices = list(range(50000,60000))
             self.data_val = BinaryMNIST(
                 root=self.hparams.data_dir,
                 split=self.hparams.val_split,
+                indices=val_indices,
                 flatten=True,
                 k=self.k,
             )
+
+            test_indices = list(range(10000))
             self.data_test = BinaryMNIST(
                 root=self.hparams.data_dir,
                 split=self.hparams.test_split,
+                indices=test_indices,
                 flatten=True,
                 k=self.k,
             )
