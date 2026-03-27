@@ -335,7 +335,7 @@ class SFMModule(LightningModule):
                 self.manifold,
                 real_probs,
                 self.kl_samples // 10,
-                batch=self.hparams.get("kl_batch", 128),
+                batch=self.hparams.get("kl_batch", 2048),
                 silent=True,
                 tangent=self.tangent_euler,
                 inference_steps=self.inference_steps,
@@ -407,7 +407,7 @@ class SFMModule(LightningModule):
                 self.manifold,
                 real_probs,
                 self.kl_samples,
-                batch=self.hparams.get("kl_batch", 128),
+                batch=self.hparams.get("kl_batch", 2048),
                 tangent=self.tangent_euler,
             )
             self.log("test/kl", kl, on_step=False, on_epoch=True, prog_bar=False)
