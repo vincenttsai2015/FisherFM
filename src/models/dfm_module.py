@@ -12,7 +12,7 @@ import lightning as pl
 import torch
 from torch.distributions import Dirichlet
 from torchmetrics import MeanMetric
-
+from torchmetrics.image.fid import FrechetInceptionDistance
 from selene_sdk.utils import NonStrandSpecific
 
 from src.models.net import expand_simplex
@@ -96,8 +96,10 @@ class DNAModule(pl.LightningModule):
         self.train_loss = MeanMetric()
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
-        self.val_outputs: dict[str, list] = defaultdict(list)
         # self.train_outputs: dict[str, list] = defaultdict(list)
+        self.val_outputs: dict[str, list] = defaultdict(list)
+        self.test_outputs: dict[str, list] = defaultdict(list)
+        self.test_fid_metric = None
         self.train_out_initialized = False
         self.loaded_classifiers = False
         self.loaded_distill_model = False
@@ -171,7 +173,41 @@ class DNAModule(pl.LightningModule):
         return kl
 
     def on_test_epoch_end(self):
-        self.log("test/kl", self.estimate_kl(self.trainer.test_dataloaders.dataset.probs.to(self.device), self.kl_samples), on_step=False, on_epoch=True, prog_bar=False)
+        # KL for toy/simplex datasets
+        if hasattr(self.trainer.test_dataloaders.dataset, "probs"):
+            self.log(
+                "test/kl",
+                self.estimate_kl(
+                    self.trainer.test_dataloaders.dataset.probs.to(self.device),
+                    self.kl_samples,
+                ),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=False,
+            )
+
+        # Binary MNIST FID + surrogate NLL
+        if self.dataset_type == "bmnist" and len(self.test_outputs["real_imgs"]) > 0:
+            real_imgs = torch.cat(self.test_outputs["real_imgs"], dim=0)
+            gen_imgs = torch.cat(self.test_outputs["gen_imgs"], dim=0)
+
+            fid_metric = FrechetInceptionDistance(normalize=True).to(self.device)
+
+            batch_size = 64
+            for i in range(0, real_imgs.size(0), batch_size):
+                real_batch = real_imgs[i:i + batch_size].to(self.device).repeat(1, 3, 1, 1)
+                gen_batch = gen_imgs[i:i + batch_size].to(self.device).repeat(1, 3, 1, 1)
+
+                fid_metric.update(real_batch, real=True)
+                fid_metric.update(gen_batch, real=False)
+
+            fid = fid_metric.compute().item()
+            self.log("test/fid_bmnist", fid, on_step=False, on_epoch=True, prog_bar=True)
+
+            nll = torch.cat(self.test_outputs["nll_bmnist"]).mean().item()
+            self.log("test/nll_bmnist", nll, on_step=False, on_epoch=True, prog_bar=True)
+
+        self.test_outputs = defaultdict(list)
 
     def general_step(self, batch, batch_idx=None):
         print(f'len(batch): {len(batch)}, batch[0].shape: {batch[0].shape}, batch[1].shape: {batch[1].shape if len(batch) > 1 else None}')
@@ -219,7 +255,7 @@ class DNAModule(pl.LightningModule):
         )
 
         # self.log('perplexity', torch.exp(losses.mean())[None].expand(B))
-        if self.stage == "val":
+        if self.stage in ["val","test"]:
             # seq = seq.reshape(B, T, L)
             if self.mode == 'dirichlet':
                 logits_pred, _ = self.dirichlet_flow_inference(seq, cls, model=self.net)
@@ -238,7 +274,24 @@ class DNAModule(pl.LightningModule):
             if self.dataset_type == 'toy_fixed':
                 self.log_data_similarities(seq_pred)
 
-            self.val_outputs['seqs'].append(seq_pred.cpu())
+            elif self.stage == "test" and self.dataset_type == "bmnist":
+                # seq / seq_pred shape: [B, L], where L = 784 for binary MNIST
+                if len(seq.shape) == 2 and seq.shape[1] == 28 * 28:
+                    real_img = seq.view(seq.size(0), 1, 28, 28).float()
+                    gen_img = seq_pred.view(seq_pred.size(0), 1, 28, 28).float()
+
+                    self.test_outputs["real_imgs"].append(real_img.cpu())
+                    self.test_outputs["gen_imgs"].append(gen_img.cpu())
+
+                    # this is not exact data likelihood; it's the model CE surrogate
+                    self.test_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
+
+            if self.stage == "val": 
+                self.val_outputs['seqs'].append(seq_pred.cpu())
+            elif self.stage == "test": 
+                self.test_outputs['seqs'].append(seq_pred.cpu())
+            
+            
             if self.cls_ckpt is not None:
                 #self.run_cls_model(seq_pred, cls, log_dict=self.val_outputs, clean_data=False, postfix='_noisycls_generated', generated=True)
                 self.run_cls_model(seq, cls, log_dict=self.val_outputs, clean_data=False, postfix='_noisycls', generated=False)
@@ -465,6 +518,7 @@ class DNAModule(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         self.val_outputs = defaultdict(list)
+        
         # self.log("val/kl", self.estimate_kl(self.trainer.val_dataloaders.dataset.probs.to(self.device), self.kl_samples // 10), on_step=False, on_epoch=True, prog_bar=False)
 
     def on_train_start(self) -> None:

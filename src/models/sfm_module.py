@@ -10,7 +10,8 @@ from lightning.pytorch.utilities import grad_norm
 from torchmetrics import MeanMetric, MinMetric, MaxMetric
 from torch_ema import ExponentialMovingAverage
 import schedulefree
-
+from torchmetrics.image.fid import FrechetInceptionDistance
+from collections import defaultdict
 
 from src.sfm import (
     OTSampler,
@@ -119,6 +120,7 @@ class SFMModule(LightningModule):
         self.min_grad = MinMetric()
         self.max_grad = MaxMetric()
         self.mean_grad = MeanMetric()
+        self.test_outputs: dict[str, list] = defaultdict(list)
         self.kl_eval = kl_eval
         self.kl_samples = kl_samples
         self.debug_grads = debug_grads
@@ -366,6 +368,12 @@ class SFMModule(LightningModule):
 
         # update and log metrics
         self.test_loss(loss)
+        if (not isinstance(x_1, list)) and x_1.dim() == 3 and x_1.shape[-1] == 2 and x_1.shape[1] == 28 * 28:
+            real_img = x_1.argmax(dim=-1).float().view(x_1.size(0), 1, 28, 28)
+            gen_img = self._bmnist_sample_images(x_1.size(0), self.inference_steps)
+
+            self.test_outputs["real_imgs"].append(real_img.detach().cpu())
+            self.test_outputs["gen_imgs"].append(gen_img.detach().cpu())
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
         if self.promoter_eval:
             mse = self.compute_sp_mse(x_1, signal)
@@ -379,13 +387,17 @@ class SFMModule(LightningModule):
                 partial(self.net, signal=signal) if len(signal.shape) != 1 else
                 partial(self.net, cls=signal)
             )
-            ppl = compute_exact_loglikelihood(
-                net, x_1, self.manifold.sphere, normalize_loglikelihood=self.normalize_loglikelihood,
+            loglik = compute_exact_loglikelihood(
+                net,
+                x_1,
+                self.manifold.sphere,
+                normalize_loglikelihood=self.normalize_loglikelihood,
                 num_steps=self.inference_steps,
             ).mean()
-            print(f'ppl: {ppl}')
-            self.test_ppl(ppl)
-            self.log("test/ppl", self.test_ppl, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+
+            nll = -loglik
+            self.log("test/loglik", loglik, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+            self.log("test/nll", nll, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
         if self.debug_grads:
@@ -411,6 +423,21 @@ class SFMModule(LightningModule):
                 tangent=self.tangent_euler,
             )
             self.log("test/kl", kl, on_step=False, on_epoch=True, prog_bar=False)
+        if len(self.test_outputs["real_imgs"]) > 0:
+            real_imgs = torch.cat(self.test_outputs["real_imgs"], dim=0)
+            gen_imgs = torch.cat(self.test_outputs["gen_imgs"], dim=0)
+
+            fid_metric = FrechetInceptionDistance(normalize=True).to(self.device)
+
+            batch_size = 64
+            for i in range(0, real_imgs.size(0), batch_size):
+                real_batch = real_imgs[i:i + batch_size].to(self.device).repeat(1, 3, 1, 1)
+                gen_batch = gen_imgs[i:i + batch_size].to(self.device).repeat(1, 3, 1, 1)
+                fid_metric.update(real_batch, real=True)
+                fid_metric.update(gen_batch, real=False)
+
+            fid = fid_metric.compute().item()
+            self.log("test/fid_bmnist", fid, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
 
     def compute_sp_mse(
         self,
@@ -450,6 +477,17 @@ class SFMModule(LightningModule):
             tangent=self.tangent_euler,
         )
         return self.fbd(pred.argmax(dim=-1), x_1.argmax(dim=-1), batch_idx)
+    
+    def _bmnist_sample_images(self, batch_size: int, steps: int) -> torch.Tensor:
+        pred = self.manifold.tangent_euler(
+            self.manifold.uniform_prior(batch_size, 28 * 28, 2).to(self.device),
+            self.net,
+            steps=steps,
+            tangent=self.tangent_euler,
+        )
+        seq = pred.argmax(dim=-1).float()   # [B, 784]
+        img = seq.view(batch_size, 1, 28, 28)
+        return img
 
     def optimizer_step(self, *args, **kwargs):
         super().optimizer_step(*args, **kwargs)
