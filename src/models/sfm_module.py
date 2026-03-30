@@ -393,6 +393,7 @@ class SFMModule(LightningModule):
 
         # update and log metrics
         self.test_loss(loss)
+        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
         # if (not isinstance(x_1, list)) and x_1.dim() == 3 and x_1.shape[-1] == 2 and x_1.shape[1] == 28 * 28:
         if self.eval_fid:
             real_img = x_1.argmax(dim=-1).float().view(x_1.size(0), 1, 28, 28)
@@ -400,7 +401,7 @@ class SFMModule(LightningModule):
 
             self.test_outputs["real_imgs"].append(real_img.detach().cpu())
             self.test_outputs["gen_imgs"].append(gen_img.detach().cpu())
-        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
+        
         if self.promoter_eval:
             mse = self.compute_sp_mse(x_1, signal)
             self.test_sp_mse(mse)
@@ -413,13 +414,7 @@ class SFMModule(LightningModule):
                 partial(self.net, signal=signal) if len(signal.shape) != 1 else
                 partial(self.net, cls=signal)
             )
-            ppl = compute_exact_loglikelihood(
-                net,
-                x_1,
-                self.manifold.sphere,
-                normalize_loglikelihood=self.normalize_loglikelihood,
-                num_steps=self.inference_steps,
-            ).mean()
+            ppl = compute_exact_loglikelihood(net, x_1, self.manifold.sphere, normalize_loglikelihood=self.normalize_loglikelihood, num_steps=self.inference_steps).mean()
 
             self.test_ppl(ppl)
             self.test_nll(-ppl)
@@ -450,7 +445,7 @@ class SFMModule(LightningModule):
                 tangent=self.tangent_euler,
             )
             self.log("test/kl", kl, on_step=False, on_epoch=True, prog_bar=True)
-        if len(self.test_outputs["real_imgs"]) > 0:
+        if self.eval_fid and len(self.test_outputs["real_imgs"]) > 0:
             real_imgs = torch.cat(self.test_outputs["real_imgs"], dim=0)
             gen_imgs = torch.cat(self.test_outputs["gen_imgs"], dim=0)
 
