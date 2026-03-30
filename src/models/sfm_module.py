@@ -114,6 +114,8 @@ class SFMModule(LightningModule):
         self.train_loss = MeanMetric()
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
+        self.val_kl = MeanMetric()
+        self.test_kl = MeanMetric()
         self.val_ppl = MeanMetric()
         self.test_ppl = MeanMetric()
         self.val_nll = MeanMetric()
@@ -160,9 +162,10 @@ class SFMModule(LightningModule):
         """Lightning hook that is called when training begins."""
         # by default lightning executes validation step sanity checks before training starts,
         # so it's worth to make sure validation metrics don't store results from these checks
-        self.val_loss.reset()
+        self.val_loss.reset()        
         self.val_ppl.reset()
         self.val_nll.reset()
+        self.val_kl.reset()
         self.sp_mse.reset()
         if hasattr(self, "val_fbd"):
             self.val_fbd.reset()
@@ -190,6 +193,7 @@ class SFMModule(LightningModule):
         self.test_loss.reset()
         self.test_ppl.reset()
         self.test_nll.reset()
+        self.test_kl.reset()
         self.test_sp_mse.reset()
         if self.eval_fid:
             self.test_outputs["real_imgs"] = []
