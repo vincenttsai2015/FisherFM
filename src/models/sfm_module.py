@@ -390,7 +390,7 @@ class SFMModule(LightningModule):
                 partial(self.net, signal=signal) if len(signal.shape) != 1 else
                 partial(self.net, cls=signal)
             )
-            loglik = compute_exact_loglikelihood(
+            ppl = compute_exact_loglikelihood(
                 net,
                 x_1,
                 self.manifold.sphere,
@@ -398,8 +398,8 @@ class SFMModule(LightningModule):
                 num_steps=self.inference_steps,
             ).mean()
 
-            nll = -loglik
-            self.log("test/loglik", loglik, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+            nll = -ppl
+            self.log("test/ppl", ppl, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
             self.log("test/nll", nll, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
