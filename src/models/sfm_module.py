@@ -123,6 +123,7 @@ class SFMModule(LightningModule):
         self.min_grad = MinMetric()
         self.max_grad = MaxMetric()
         self.mean_grad = MeanMetric()
+        self.val_outputs: dict[str, list] = defaultdict(list)
         self.test_outputs: dict[str, list] = defaultdict(list)
         self.kl_eval = kl_eval
         self.kl_samples = kl_samples
