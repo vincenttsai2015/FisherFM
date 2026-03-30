@@ -272,18 +272,22 @@ class DNAModule(pl.LightningModule):
             if self.dataset_type == 'toy_fixed':
                 self.log_data_similarities(seq_pred)
 
-            elif self.stage == "test" and self.dataset_type == "bmnist":
+            elif self.dataset_type == "bmnist":
                 # seq / seq_pred shape: [B, L], where L = 784 for binary MNIST
                 if self.test_fid_metric:
                 # if len(seq.shape) == 2 and seq.shape[1] == 28 * 28:
                     real_img = seq.view(seq.size(0), 1, 28, 28).float()
                     gen_img = seq_pred.view(seq_pred.size(0), 1, 28, 28).float()
 
-                    self.test_outputs["real_imgs"].append(real_img.cpu())
-                    self.test_outputs["gen_imgs"].append(gen_img.cpu())
-
-                    # this is not exact data likelihood; it's the model CE surrogate
-                    self.test_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
+                    if self.stage == "val":
+                        self.val_outputs["real_imgs"].append(real_img.cpu())
+                        self.val_outputs["gen_imgs"].append(gen_img.cpu())
+                        self.val_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
+                    elif self.stage == "test":
+                        self.test_outputs["real_imgs"].append(real_img.cpu())
+                        self.test_outputs["gen_imgs"].append(gen_img.cpu())
+                        # this is not exact data likelihood; it's the model CE surrogate
+                        self.test_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
 
             if self.stage == "val": 
                 self.val_outputs['seqs'].append(seq_pred.cpu())
