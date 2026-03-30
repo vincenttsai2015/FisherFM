@@ -272,28 +272,32 @@ class DNAModule(pl.LightningModule):
             if self.dataset_type == 'toy_fixed':
                 self.log_data_similarities(seq_pred)
 
-            elif self.dataset_type == "bmnist":
-                # seq / seq_pred shape: [B, L], where L = 784 for binary MNIST
-                if self.test_fid_metric:
-                # if len(seq.shape) == 2 and seq.shape[1] == 28 * 28:
-                    real_img = seq.view(seq.size(0), 1, 28, 28).float()
-                    gen_img = seq_pred.view(seq_pred.size(0), 1, 28, 28).float()
+            # elif self.dataset_type == "bmnist":
+            # seq / seq_pred shape: [B, L], where L = 784 for binary MNIST
+            if self.test_fid_metric:
+            # if len(seq.shape) == 2 and seq.shape[1] == 28 * 28:
+                real_img = seq.view(seq.size(0), 1, 28, 28).float()
+                gen_img = seq_pred.view(seq_pred.size(0), 1, 28, 28).float()
 
-                    if self.stage == "val":
-                        self.val_outputs["real_imgs"].append(real_img.cpu())
-                        self.val_outputs["gen_imgs"].append(gen_img.cpu())
-                        self.val_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
-                    elif self.stage == "test":
-                        self.test_outputs["real_imgs"].append(real_img.cpu())
-                        self.test_outputs["gen_imgs"].append(gen_img.cpu())
-                        # this is not exact data likelihood; it's the model CE surrogate
-                        self.test_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
+                if self.stage == "val":
+                    self.val_outputs["real_imgs"].append(real_img.cpu())
+                    self.val_outputs["gen_imgs"].append(gen_img.cpu())
+                    self.val_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
+                    print(f'Number of real images in validation set: {len(self.val_outputs["real_imgs"])}')
+                    print(f'Number of generated images in validation set: {len(self.val_outputs["gen_imgs"])}')
+                    
+                elif self.stage == "test":
+                    self.test_outputs["real_imgs"].append(real_img.cpu())
+                    self.test_outputs["gen_imgs"].append(gen_img.cpu())
+                    # this is not exact data likelihood; it's the model CE surrogate
+                    self.test_outputs["nll_bmnist"].append(losses.detach().reshape(1).cpu())
+                    print(f'Number of real images in test set: {len(self.test_outputs["real_imgs"])}')
+                    print(f'Number of generated images in test set: {len(self.test_outputs["gen_imgs"])}')
 
             if self.stage == "val": 
                 self.val_outputs['seqs'].append(seq_pred.cpu())
             elif self.stage == "test": 
                 self.test_outputs['seqs'].append(seq_pred.cpu())
-            
             
             if self.cls_ckpt is not None:
                 #self.run_cls_model(seq_pred, cls, log_dict=self.val_outputs, clean_data=False, postfix='_noisycls_generated', generated=True)
@@ -517,18 +521,27 @@ class DNAModule(pl.LightningModule):
             log_dict[f'scores{postfix}'].append(scores.detach().cpu())
 
     def on_validation_epoch_start(self):
-        pass
+        self.val_loss.reset()
+        if self.test_fid_metric:
+            print(f'Initialize val outputs...')
+            self.val_outputs["real_imgs"] = []
+            self.val_outputs["gen_imgs"] = []
+            self.val_outputs["nll_bmnist"] = []
 
     def on_validation_epoch_end(self):
-        self.val_outputs = defaultdict(list)
         self.log("val/kl", self.estimate_kl(self.trainer.val_dataloaders.dataset.probs.to(self.device), self.kl_samples // 10), on_step=False, on_epoch=True, prog_bar=True)
 
-    def on_train_start(self) -> None:
-        self.val_loss.reset()
-
     def on_train_epoch_start(self):
-        pass
+        self.train_loss.reset()
 
+    def on_test_epoch_start(self):
+        self.test_loss.reset()
+        if self.test_fid_metric:
+            print(f'Initialize test outputs...')
+            self.test_outputs["real_imgs"] = []
+            self.test_outputs["gen_imgs"] = []
+            self.test_outputs["nll_bmnist"] = []
+    
     def on_train_epoch_end(self):
         self.train_out_initialized = True
         """log = self._log

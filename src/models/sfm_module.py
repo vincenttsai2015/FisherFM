@@ -116,6 +116,8 @@ class SFMModule(LightningModule):
         self.test_loss = MeanMetric()
         self.val_ppl = MeanMetric()
         self.test_ppl = MeanMetric()
+        self.val_nll = MeanMetric()
+        self.test_nll = MeanMetric()
         self.sp_mse = MeanMetric()
         self.test_sp_mse = MeanMetric()
         self.min_grad = MinMetric()
@@ -159,6 +161,7 @@ class SFMModule(LightningModule):
         # so it's worth to make sure validation metrics don't store results from these checks
         self.val_loss.reset()
         self.val_ppl.reset()
+        self.val_nll.reset()
         self.sp_mse.reset()
         if hasattr(self, "val_fbd"):
             self.val_fbd.reset()
@@ -167,6 +170,10 @@ class SFMModule(LightningModule):
             self.val_e_loss.reset()
 
     def on_validation_epoch_start(self):
+        if self.eval_fid:
+            self.val_outputs["real_imgs"] = []
+            self.val_outputs["gen_imgs"] = []
+            self.val_outputs["nll_bmnist"] = []
         for optim in self.trainer.optimizers:
             # schedule free needs to set to eval
             if isinstance(optim, schedulefree.AdamWScheduleFree):
@@ -179,6 +186,14 @@ class SFMModule(LightningModule):
                 optim.train()
 
     def on_test_epoch_start(self):
+        self.test_loss.reset()
+        self.test_ppl.reset()
+        self.test_nll.reset()
+        self.test_sp_mse.reset()
+        if self.eval_fid:
+            self.test_outputs["real_imgs"] = []
+            self.test_outputs["gen_imgs"] = []
+            self.test_outputs["nll_bmnist"] = []
         for optim in self.trainer.optimizers:
             # schedule free needs to set to eval
             if isinstance(optim, schedulefree.AdamWScheduleFree):
@@ -323,7 +338,9 @@ class SFMModule(LightningModule):
                 num_steps=self.inference_steps,
             ).mean()
             self.val_ppl(ppl)
+            self.val_nll(-ppl)
             self.log("val/ppl", self.val_ppl, on_step=False, on_epoch=True, prog_bar=True)
+            self.log("val/nll", self.val_nll, on_step=False, on_epoch=True, prog_bar=True)
         if self.eval_fbd and (self.trainer.current_epoch + 1) % self.fbd_every == 0:
             self.val_fbd(self.compute_fbd(x_1, signal, self.inference_steps // 4, batch_idx))
             self.log("val/fbd", self.val_fbd, on_step=False, on_epoch=True, prog_bar=True)
@@ -344,6 +361,7 @@ class SFMModule(LightningModule):
                 tangent=self.tangent_euler,
                 inference_steps=self.inference_steps,
             )
+            self.val_kl(kl)
             self.log("val/kl", kl, on_step=False, on_epoch=True, prog_bar=True)
 
     def test_step(self, x_1: torch.Tensor | list[torch.Tensor], batch_idx: int):
@@ -398,9 +416,10 @@ class SFMModule(LightningModule):
                 num_steps=self.inference_steps,
             ).mean()
 
-            nll = -ppl
+            self.test_ppl(ppl)
+            self.test_nll(-ppl)
             self.log("test/ppl", ppl, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
-            self.log("test/nll", nll, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+            self.log("test/nll", -ppl, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
         if self.debug_grads:
