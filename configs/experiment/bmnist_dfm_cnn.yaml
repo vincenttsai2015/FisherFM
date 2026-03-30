@@ -31,6 +31,7 @@ model:
     mode: "dirichlet"
   compile: false
   mode: "dirichlet"
+  test_fid_metric: true
 
 data:
   batch_size: 256

@@ -60,6 +60,7 @@ class DNAModule(pl.LightningModule):
         adaptive_prob_add: bool = False,
         flow_temp: float = 1.0,
         cls_guidance: bool = False,
+        test_fid_metric: bool = False,
     ):
         super().__init__()
         self.save_hyperparameters(logger=False)
@@ -99,7 +100,7 @@ class DNAModule(pl.LightningModule):
         # self.train_outputs: dict[str, list] = defaultdict(list)
         self.val_outputs: dict[str, list] = defaultdict(list)
         self.test_outputs: dict[str, list] = defaultdict(list)
-        self.test_fid_metric = None
+        self.test_fid_metric = False
         self.train_out_initialized = False
         self.loaded_classifiers = False
         self.loaded_distill_model = False
@@ -181,9 +182,7 @@ class DNAModule(pl.LightningModule):
                     self.trainer.test_dataloaders.dataset.probs.to(self.device),
                     self.kl_samples,
                 ),
-                on_step=False,
-                on_epoch=True,
-                prog_bar=False,
+                on_step=False, on_epoch=True, prog_bar=True
             )
 
         # Binary MNIST FID + surrogate NLL
@@ -206,8 +205,6 @@ class DNAModule(pl.LightningModule):
 
             nll = torch.cat(self.test_outputs["nll_bmnist"]).mean().item()
             self.log("test/nll_bmnist", nll, on_step=False, on_epoch=True, prog_bar=True)
-
-        self.test_outputs = defaultdict(list)
 
     def general_step(self, batch, batch_idx=None):
         print(f'len(batch): {len(batch)}, batch[0].shape: {batch[0].shape}, batch[1].shape: {batch[1].shape if len(batch) > 1 else None}')
@@ -276,7 +273,8 @@ class DNAModule(pl.LightningModule):
 
             elif self.stage == "test" and self.dataset_type == "bmnist":
                 # seq / seq_pred shape: [B, L], where L = 784 for binary MNIST
-                if len(seq.shape) == 2 and seq.shape[1] == 28 * 28:
+                if self.test_fid_metric:
+                # if len(seq.shape) == 2 and seq.shape[1] == 28 * 28:
                     real_img = seq.view(seq.size(0), 1, 28, 28).float()
                     gen_img = seq_pred.view(seq_pred.size(0), 1, 28, 28).float()
 
@@ -518,8 +516,7 @@ class DNAModule(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         self.val_outputs = defaultdict(list)
-        
-        # self.log("val/kl", self.estimate_kl(self.trainer.val_dataloaders.dataset.probs.to(self.device), self.kl_samples // 10), on_step=False, on_epoch=True, prog_bar=False)
+        self.log("val/kl", self.estimate_kl(self.trainer.val_dataloaders.dataset.probs.to(self.device), self.kl_samples // 10), on_step=False, on_epoch=True, prog_bar=True)
 
     def on_train_start(self) -> None:
         self.val_loss.reset()

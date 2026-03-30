@@ -35,6 +35,8 @@ model:
   kl_eval: true
   ema: true  
   # label_smoothing: 0.81
+  eval_fid: true
+  eval_ppl: false
 
 data:
   batch_size: 256

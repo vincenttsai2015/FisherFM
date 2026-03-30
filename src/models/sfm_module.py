@@ -75,6 +75,7 @@ class SFMModule(LightningModule):
         debug_grads: bool = False,
         inference_steps: int = 100,
         tangent_wrapper: bool = True,
+        eval_fid: bool = False,
         # enhancer
         eval_fbd: bool = False,
         fbd_every: int = 10,
@@ -125,6 +126,7 @@ class SFMModule(LightningModule):
         self.kl_samples = kl_samples
         self.debug_grads = debug_grads
         self.inference_steps = inference_steps
+        self.eval_fid = eval_fid
         # PPL
         self.eval_ppl = eval_ppl
         self.eval_ppl_every = eval_ppl_every
@@ -368,7 +370,8 @@ class SFMModule(LightningModule):
 
         # update and log metrics
         self.test_loss(loss)
-        if (not isinstance(x_1, list)) and x_1.dim() == 3 and x_1.shape[-1] == 2 and x_1.shape[1] == 28 * 28:
+        # if (not isinstance(x_1, list)) and x_1.dim() == 3 and x_1.shape[-1] == 2 and x_1.shape[1] == 28 * 28:
+        if self.eval_fid:
             real_img = x_1.argmax(dim=-1).float().view(x_1.size(0), 1, 28, 28)
             gen_img = self._bmnist_sample_images(x_1.size(0), self.inference_steps)
 
