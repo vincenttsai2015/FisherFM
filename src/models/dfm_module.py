@@ -100,7 +100,7 @@ class DNAModule(pl.LightningModule):
         # self.train_outputs: dict[str, list] = defaultdict(list)
         self.val_outputs: dict[str, list] = defaultdict(list)
         self.test_outputs: dict[str, list] = defaultdict(list)
-        self.test_fid_metric = False
+        self.test_fid_metric = test_fid_metric
         self.train_out_initialized = False
         self.loaded_classifiers = False
         self.loaded_distill_model = False
@@ -175,15 +175,15 @@ class DNAModule(pl.LightningModule):
 
     def on_test_epoch_end(self):
         # KL for toy/simplex datasets
-        if hasattr(self.trainer.test_dataloaders.dataset, "probs"):
-            self.log(
-                "test/kl",
-                self.estimate_kl(
-                    self.trainer.test_dataloaders.dataset.probs.to(self.device),
-                    self.kl_samples,
-                ),
-                on_step=False, on_epoch=True, prog_bar=True
-            )
+        # if hasattr(self.trainer.test_dataloaders.dataset, "probs"):
+        self.log(
+            "test/kl",
+            self.estimate_kl(
+                self.trainer.test_dataloaders.dataset.probs.to(self.device),
+                self.kl_samples,
+            ),
+            on_step=False, on_epoch=True, prog_bar=True
+        )
 
         # Binary MNIST FID + surrogate NLL
         if self.test_fid_metric:
