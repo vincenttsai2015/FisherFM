@@ -186,7 +186,8 @@ class DNAModule(pl.LightningModule):
             )
 
         # Binary MNIST FID + surrogate NLL
-        if self.dataset_type == "bmnist" and len(self.test_outputs["real_imgs"]) > 0:
+        if self.test_fid_metric:
+        # if self.dataset_type == "bmnist" and len(self.test_outputs["real_imgs"]) > 0:
             real_imgs = torch.cat(self.test_outputs["real_imgs"], dim=0)
             gen_imgs = torch.cat(self.test_outputs["gen_imgs"], dim=0)
 
