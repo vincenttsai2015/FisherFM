@@ -425,7 +425,7 @@ class SFMModule(LightningModule):
                 batch=self.hparams.get("kl_batch", 2048),
                 tangent=self.tangent_euler,
             )
-            self.log("test/kl", kl, on_step=False, on_epoch=True, prog_bar=False)
+            self.log("test/kl", kl, on_step=False, on_epoch=True, prog_bar=True)
         if len(self.test_outputs["real_imgs"]) > 0:
             real_imgs = torch.cat(self.test_outputs["real_imgs"], dim=0)
             gen_imgs = torch.cat(self.test_outputs["gen_imgs"], dim=0)
