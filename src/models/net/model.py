@@ -709,6 +709,8 @@ class GaussianFourierProjection(nn.Module):
         self.W = nn.Parameter(torch.randn(embed_dim // 2) * scale, requires_grad=False)
 
     def forward(self, x):
+        if x.dim() == 0:
+            x = x.unsqueeze(0)   # [] -> [1]
         x_proj = x[:, None] * self.W[None, :] * 2 * np.pi
         return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
 
@@ -835,6 +837,15 @@ class CNNModel(nn.Module):
 
     def forward(self, x, t: Tensor, cls = None, return_embedding=False):
         # print(f"input x shape = {x.shape}")
+        if not torch.is_tensor(t):
+            t = torch.tensor(t, device=x.device, dtype=x.dtype)
+
+        if t.dim() == 0:
+            t = t.expand(x.shape[0])
+
+        elif t.dim() == 1 and t.shape[0] == 1 and x.shape[0] > 1:
+            t = t.expand(x.shape[0])
+        
         if self.clean_data:
             feat = self.linear(x)
             feat = feat.permute(0, 2, 1)
